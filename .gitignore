@@ -1,0 +1,8 @@
+node_modules/
+.astro_data/
+dist/
+*.log
+*.part
+*.astro_bak*
+.DS_Store
+Thumbs.db

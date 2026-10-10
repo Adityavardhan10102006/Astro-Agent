@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASTRO — Native Desktop AI Assistant</title>
+  <link rel="stylesheet" href="theme/styles.css">
+</head>
+<body>
+  <!-- Header & Status Bar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="brand-logo">ASTRO</span>
+      <span class="brand-badge" id="offline-badge">OFFLINE MODE</span>
+    </div>
+
+    <div class="topbar-gauges">
+      <div class="gauge-chip" id="model-status-chip">
+        <span class="status-dot idle" id="model-dot"></span>
+        <span id="model-status-text">No Model Loaded</span>
+      </div>
+      <div class="gauge-chip" id="hardware-gauge">
+        <span class="status-dot active"></span>
+        <span id="hardware-text">AMD Ryzen 5 · 16GB RAM</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+      <div class="nav-item active" data-screen="chat-screen">
+        <span class="nav-icon">💬</span>
+        <span>01 Home & Chat</span>
+      </div>
+      <div class="nav-item" data-screen="models-screen">
+        <span class="nav-icon">⚡</span>
+        <span>02 Model Manager</span>
+      </div>
+      <div class="nav-item" data-screen="files-screen">
+        <span class="nav-icon">📁</span>
+        <span>03 Files & RAG</span>
+      </div>
+      <div class="nav-item" data-screen="studio-screen">
+        <span class="nav-icon">🛠️</span>
+        <span>04 Coding Studio</span>
+      </div>
+      <div class="nav-item" data-screen="settings-screen">
+        <span class="nav-icon">⚙️</span>
+        <span>05 Settings</span>
+      </div>
+
+      <div class="sidebar-spacer"></div>
+
+      <div class="sidebar-footer">
+        <div><strong>ASTRO Desktop v0.1.0</strong></div>
+        <div>Offline-first · Private</div>
+      </div>
+    </nav>
+
+    <!-- Content Area -->
+    <main class="content-area">
+      <!-- 01: Home & Chat Screen -->
+      <section class="screen active" id="chat-screen">
+        <div class="chat-layout">
+          <!-- Conversation History Sidebar -->
+          <div class="chat-history-sidebar">
+            <button class="btn btn-primary" id="btn-new-chat">+ New Conversation</button>
+            <div class="history-list" id="conversations-list">
+              <!-- Populated by app.js -->
+            </div>
+          </div>
+
+          <!-- Main Chat Stream -->
+          <div class="chat-main">
+            <div class="chat-messages" id="chat-messages-container">
+              <div class="message assistant">
+                <div class="message-bubble">
+                  Welcome to <strong>ASTRO</strong>! I am your native, offline-first AI desktop assistant.
+                  <br><br>
+                  To get started, open <strong>02 Model Manager</strong> to discover and download <strong>Qwen2.5-Coder-7B</strong>, or query existing documents using local RAG.
+                </div>
+              </div>
+            </div>
+
+            <div class="chat-input-bar">
+              <div class="chat-controls">
+                <label class="rag-toggle-wrap">
+                  <input type="checkbox" id="rag-checkbox" checked>
+                  <span>Enable Local RAG (Offline Knowledge)</span>
+                </label>
+                <div id="streaming-metrics" style="font-size: 0.72rem; color: var(--text-muted);"></div>
+                <button class="btn btn-danger btn-sm" id="btn-stop-gen" style="display: none;">Stop</button>
+              </div>
+
+              <div class="chat-input-row">
+                <textarea class="chat-textarea" id="chat-input" placeholder="Ask ASTRO anything or request code changes..."></textarea>
+                <button class="btn btn-primary" id="btn-send">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 02: Model Manager Screen -->
+      <section class="screen" id="models-screen">
+        <div class="screen-header">
+          <div>
+            <h1 class="screen-title">Local Model Manager</h1>
+            <p class="screen-subtitle">Discover, download, verify, load, and switch local GGUF models directly on device.</p>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-refresh-hf">Discover on Hugging Face</button>
+        </div>
+
+        <div class="card" id="hardware-banner" style="margin-bottom: 20px;">
+          <div class="card-header">
+            <div>
+              <strong>Hardware Optimization Status</strong>
+              <div id="hw-compat-notes" style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px;">Detecting CPU & RAM...</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="model-grid" id="models-grid">
+          <!-- Populated by app.js -->
+        </div>
+      </section>
+
+      <!-- 03: Files & Knowledge (RAG) Screen -->
+      <section class="screen" id="files-screen">
+        <div class="screen-header">
+          <div>
+            <h1 class="screen-title">Files & Local Knowledge (RAG)</h1>
+            <p class="screen-subtitle">Index workspace documents for 100% offline retrieval with verified citations.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm" id="btn-pick-workspace">Select Folder</button>
+            <button class="btn btn-primary btn-sm" id="btn-index-all">Index Workspace</button>
+          </div>
+        </div>
+
+        <div class="rag-layout">
+          <div class="file-browser-panel">
+            <h3>Workspace Files</h3>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="file-search-input" placeholder="Search files..." style="flex: 1; padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: #fff; font-size: 0.8rem;">
+            </div>
+            <div class="file-list" id="workspace-file-list">
+              <!-- Populated by app.js -->
+            </div>
+          </div>
+
+          <div class="rag-preview-panel">
+            <h3>Local RAG Index Stats</h3>
+            <div id="rag-stats-box" style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
+              <!-- Populated by app.js -->
+            </div>
+
+            <h3 style="margin-top: 16px;">Test Retrieval Query</h3>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="rag-test-input" placeholder="Query offline index..." style="flex: 1; padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: #fff; font-size: 0.8rem;">
+              <button class="btn btn-primary btn-sm" id="btn-rag-test">Test</button>
+            </div>
+            <div id="rag-test-results" style="flex: 1; overflow-y: auto; font-size: 0.78rem; margin-top: 8px; color: var(--text-secondary);"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 04: Coding Studio Screen -->
+      <section class="screen" id="studio-screen">
+        <div class="screen-header">
+          <div>
+            <h1 class="screen-title">Coding Studio & Safe Actions</h1>
+            <p class="screen-subtitle">Review proposed code diffs, inspect files, and execute approved terminal commands.</p>
+          </div>
+        </div>
+
+        <div class="studio-layout">
+          <div class="studio-panel">
+            <h3>Project Files</h3>
+            <div class="file-list" id="studio-file-tree"></div>
+          </div>
+
+          <div class="studio-panel">
+            <h3>Diff Review (Before / After)</h3>
+            <div class="diff-viewer" id="studio-diff-viewer">// Select a proposed change to review diff</div>
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+              <button class="btn btn-danger btn-sm" id="btn-reject-diff">Reject</button>
+              <button class="btn btn-primary btn-sm" id="btn-apply-diff">Approve & Apply (Rule 14)</button>
+            </div>
+          </div>
+
+          <div class="studio-panel">
+            <h3>Terminal & Execution</h3>
+            <div class="terminal-box" id="studio-terminal-box">ASTRO Terminal ready. Commands require approval (Rule 9).</div>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="terminal-input" placeholder="npm test..." style="flex: 1; padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: #fff; font-size: 0.8rem; font-family: var(--font-mono);">
+              <button class="btn btn-primary btn-sm" id="btn-run-cmd">Execute</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 05: Settings & Diagnostics Screen -->
+      <section class="screen" id="settings-screen">
+        <div class="screen-header">
+          <div>
+            <h1 class="screen-title">Settings & Diagnostics</h1>
+            <p class="screen-subtitle">Hardware diagnostics, privacy constraints, and local configuration.</p>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-save-settings">Save Settings</button>
+        </div>
+
+        <div class="settings-section">
+          <h3>Privacy & Network Controls</h3>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Enforce Offline Mode</div>
+              <div class="settings-desc">Disable all external network connections and cloud telemetry.</div>
+            </div>
+            <input type="checkbox" id="setting-offline-only" checked>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Require Confirmation for Terminal Commands</div>
+              <div class="settings-desc">Enforce explicit user approval before executing desktop commands (Rule 9).</div>
+            </div>
+            <input type="checkbox" id="setting-confirm-cmd" checked>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-label">Require Confirmation for File Writes</div>
+              <div class="settings-desc">Show diffs and require confirmation before modifying user project files (Rule 14).</div>
+            </div>
+            <input type="checkbox" id="setting-confirm-write" checked>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Hardware & Engine Diagnostics</h3>
+          <div id="settings-hw-report" style="font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary);">
+            Loading hardware diagnostics...
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
