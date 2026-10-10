@@ -16,4 +16,4 @@
 | 12 | External AI requests are disabled by default and require explicit configuration | Passed | `offlineOnly: true`, telemetry disabled, cloud AI disabled by default |
 | 13 | Insufficient RAM, low disk space, missing files, and unavailable internet produce useful error messages | Passed | Guardrails in `HardwareService`, memory warnings on Ryzen 5 (16GB RAM) |
 | 14 | User files are not overwritten or deleted without appropriate safeguards | Passed | Backup created (`.astro_bak`), diff generated, user confirmation required (Rule 14) |
-| 15 | The application includes clear setup instructions and an offline test procedure | Passed | Documented in `README.md`, verified against offline procedure |
+| 15 | The application includes clear setup instructions and an offline test procedure | Passed | Documented in `docs/README.md`, verified against offline procedure |
