@@ -14,6 +14,11 @@ const DEFAULT_SETTINGS = {
     settingsDir: path.join(ASTRO_DATA_DIR, 'settings'),
     logsDir: path.join(ASTRO_DATA_DIR, 'logs')
   },
+  appearance: {
+    theme: 'dark', // 'dark' | 'light'
+    fontSize: 'md', // 'sm' | 'md' | 'lg'
+    sidebarCollapsed: false
+  },
   privacy: {
     offlineOnly: true,
     allowExternalServices: false,
@@ -32,15 +37,23 @@ const DEFAULT_SETTINGS = {
     gpuLayers: 0 // CPU AVX2 default for integrated Radeon
   },
   rag: {
-    chunkSize: 500,
-    chunkOverlap: 100,
+    chunkSize: 400,
+    chunkOverlap: 60,
     maxRetrievedChunks: 4,
-    similarityThreshold: 0.65
+    similarityThreshold: 0.65,
+    activeCollection: 'default'
+  },
+  voice: {
+    micEnabled: false,
+    ttsEnabled: false,
+    speechRate: 1.0,
+    preferredVoice: 'default'
   },
   security: {
     requireApprovalForCommands: true,
     requireApprovalForFileEdits: true,
-    allowedWorkspaceRoots: [process.cwd(), os.homedir()]
+    allowedWorkspaceRoots: [process.cwd(), os.homedir()],
+    excludedFolders: ['node_modules', '.git', '.astro_data', 'dist', 'build', '.cache']
   },
   supportedFormats: [
     '.md', '.txt', '.js', '.ts', '.jsx', '.tsx',

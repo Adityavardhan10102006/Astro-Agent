@@ -6,32 +6,140 @@ class RAGService {
     this.storage = storageService;
     this.chunkSize = options.chunkSize || 400; // approximate words
     this.chunkOverlap = options.chunkOverlap || 60;
-    this.indexPath = path.join(this.storage.paths.ragIndex, 'default-collection.json');
+    this.activeCollectionName = 'default';
     this.collection = {
       name: 'default',
       updatedAt: null,
-      documents: {}, // filePath -> { hash, mtime, chunkCount }
+      documents: {}, // filePath -> { docName, chunkCount, status: 'indexed', indexedAt }
       chunks: []     // [{ id, docPath, docName, chunkIndex, text, terms }]
     };
-    this.loadIndex();
+    this.loadIndex(this.activeCollectionName);
   }
 
-  loadIndex() {
+  getCollectionPath(name = this.activeCollectionName) {
+    const safeName = name.replace(/[^a-zA-Z0-9_-]/g, '_');
+    return path.join(this.storage.paths.ragIndex, `collection-${safeName}.json`);
+  }
+
+  loadIndex(collectionName = 'default') {
     this.storage.ensureDirectories();
-    if (fs.existsSync(this.indexPath)) {
+    this.activeCollectionName = collectionName;
+    const filePath = this.getCollectionPath(collectionName);
+
+    if (fs.existsSync(filePath)) {
       try {
-        const data = fs.readFileSync(this.indexPath, 'utf8');
+        const data = fs.readFileSync(filePath, 'utf8');
         this.collection = JSON.parse(data);
       } catch (e) {
         console.error('Failed to load RAG index, starting fresh:', e.message);
+        this.collection = {
+          name: collectionName,
+          updatedAt: null,
+          documents: {},
+          chunks: []
+        };
       }
+    } else {
+      this.collection = {
+        name: collectionName,
+        updatedAt: null,
+        documents: {},
+        chunks: []
+      };
+      this.saveIndex();
     }
   }
 
   saveIndex() {
     this.storage.ensureDirectories();
     this.collection.updatedAt = new Date().toISOString();
-    fs.writeFileSync(this.indexPath, JSON.stringify(this.collection, null, 2), 'utf8');
+    const filePath = this.getCollectionPath(this.activeCollectionName);
+    fs.writeFileSync(filePath, JSON.stringify(this.collection, null, 2), 'utf8');
+  }
+
+  listCollections() {
+    this.storage.ensureDirectories();
+    const dir = this.storage.paths.ragIndex;
+    try {
+      const files = fs.readdirSync(dir).filter(f => f.startsWith('collection-') && f.endsWith('.json'));
+      const list = files.map(f => {
+        try {
+          const content = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+          return {
+            name: content.name,
+            totalDocuments: Object.keys(content.documents || {}).length,
+            totalChunks: (content.chunks || []).length,
+            updatedAt: content.updatedAt
+          };
+        } catch (e) {
+          return null;
+        }
+      }).filter(Boolean);
+
+      if (list.length === 0) {
+        list.push({
+          name: 'default',
+          totalDocuments: 0,
+          totalChunks: 0,
+          updatedAt: null
+        });
+      }
+      return list;
+    } catch (e) {
+      return [{ name: 'default', totalDocuments: 0, totalChunks: 0, updatedAt: null }];
+    }
+  }
+
+  createCollection(name) {
+    const cleanName = name.trim();
+    if (!cleanName) throw new Error('Collection name cannot be empty.');
+    this.activeCollectionName = cleanName;
+    this.collection = {
+      name: cleanName,
+      updatedAt: new Date().toISOString(),
+      documents: {},
+      chunks: []
+    };
+    this.saveIndex();
+    return this.collection;
+  }
+
+  renameCollection(oldName, newName) {
+    const cleanOld = oldName.trim();
+    const cleanNew = newName.trim();
+    if (!cleanNew) throw new Error('New collection name cannot be empty.');
+
+    const oldPath = this.getCollectionPath(cleanOld);
+    const newPath = this.getCollectionPath(cleanNew);
+
+    if (fs.existsSync(oldPath)) {
+      const data = JSON.parse(fs.readFileSync(oldPath, 'utf8'));
+      data.name = cleanNew;
+      data.updatedAt = new Date().toISOString();
+      fs.writeFileSync(newPath, JSON.stringify(data, null, 2), 'utf8');
+      fs.unlinkSync(oldPath);
+
+      if (this.activeCollectionName === cleanOld) {
+        this.activeCollectionName = cleanNew;
+        this.collection = data;
+      }
+    }
+    return true;
+  }
+
+  deleteCollection(name) {
+    const cleanName = name.trim();
+    if (cleanName === 'default') {
+      throw new Error('Default collection cannot be deleted.');
+    }
+    const filePath = this.getCollectionPath(cleanName);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    if (this.activeCollectionName === cleanName) {
+      this.loadIndex('default');
+    }
+    return true;
   }
 
   tokenize(text) {
@@ -67,7 +175,6 @@ class RAGService {
             text: chunkText,
             terms: this.tokenize(chunkText)
           });
-          // Retain overlap
           currentWords = currentWords.slice(-this.chunkOverlap);
         }
         currentWords.push(...words);
@@ -90,7 +197,6 @@ class RAGService {
   }
 
   addDocument(docPath, content) {
-    // Remove existing chunks for this document
     this.collection.chunks = this.collection.chunks.filter(c => c.docPath !== docPath);
 
     const chunks = this.createChunks(content, docPath);
@@ -98,6 +204,7 @@ class RAGService {
     this.collection.documents[docPath] = {
       docName: path.basename(docPath),
       chunkCount: chunks.length,
+      status: 'indexed',
       indexedAt: new Date().toISOString()
     };
 
@@ -109,6 +216,23 @@ class RAGService {
     this.collection.chunks = this.collection.chunks.filter(c => c.docPath !== docPath);
     delete this.collection.documents[docPath];
     this.saveIndex();
+    return true;
+  }
+
+  rebuildIndex(docContentMap = {}) {
+    this.collection.chunks = [];
+    for (const [docPath, content] of Object.entries(docContentMap)) {
+      const chunks = this.createChunks(content, docPath);
+      this.collection.chunks.push(...chunks);
+      this.collection.documents[docPath] = {
+        docName: path.basename(docPath),
+        chunkCount: chunks.length,
+        status: 'indexed',
+        indexedAt: new Date().toISOString()
+      };
+    }
+    this.saveIndex();
+    return this.collection.chunks.length;
   }
 
   calculateTFIDFScore(queryTerms, chunkTerms) {
@@ -124,7 +248,6 @@ class RAGService {
     for (const qTerm of queryTerms) {
       if (termMap.has(qTerm)) {
         matchCount++;
-        // TF weighting
         const tf = termMap.get(qTerm) / chunkTerms.length;
         score += tf * 10;
       }
@@ -183,10 +306,13 @@ class RAGService {
 
   getIndexStats() {
     return {
+      activeCollection: this.activeCollectionName,
       totalDocuments: Object.keys(this.collection.documents).length,
       totalChunks: this.collection.chunks.length,
       updatedAt: this.collection.updatedAt,
-      documents: this.collection.documents
+      documents: this.collection.documents,
+      ready: true,
+      engine: 'Offline TF-IDF & Keyword Inverted Index'
     };
   }
 }

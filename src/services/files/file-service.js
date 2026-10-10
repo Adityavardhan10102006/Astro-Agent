@@ -6,6 +6,7 @@ class FileService {
   constructor(securityService, supportedExtensions = DEFAULT_SETTINGS.supportedFormats) {
     this.security = securityService;
     this.supportedExtensions = new Set(supportedExtensions.map(e => e.toLowerCase()));
+    this.excludedDirs = new Set(['node_modules', '.git', '.astro_data', 'dist', 'build', '.cache']);
   }
 
   isSupported(filePath) {
@@ -13,14 +14,31 @@ class FileService {
     return this.supportedExtensions.has(ext);
   }
 
-  listFiles(dirPath, options = { recursive: true, maxDepth: 5, ignoreHidden: true }) {
+  getFileCategory(ext) {
+    const codeExts = new Set(['.js', '.ts', '.jsx', '.tsx', '.py', '.html', '.css', '.sql', '.sh', '.bat', '.ps1', '.c', '.cpp', '.rs']);
+    const docExts = new Set(['.md', '.txt', '.rtf', '.pdf']);
+    const dataExts = new Set(['.json', '.csv', '.yaml', '.yml', '.xml']);
+
+    if (codeExts.has(ext)) return 'code';
+    if (docExts.has(ext)) return 'docs';
+    if (dataExts.has(ext)) return 'data';
+    return 'other';
+  }
+
+  setExclusions(dirsArray) {
+    this.excludedDirs = new Set(dirsArray);
+  }
+
+  getExclusions() {
+    return Array.from(this.excludedDirs);
+  }
+
+  listFiles(dirPath, options = { recursive: true, maxDepth: 5, ignoreHidden: true, categoryFilter: 'all' }) {
     if (!this.security.isPathAllowed(dirPath)) {
-      throw new Error(`Access denied to path: ${dirPath}`);
+      throw new Error(`Security Exception: Access denied to unapproved path: ${dirPath}`);
     }
 
     const results = [];
-    const ignoreDirs = new Set(['node_modules', '.git', '.astro_data', 'dist', 'build', '.cache']);
-
     const scan = (currentDir, depth) => {
       if (depth > options.maxDepth) return;
       try {
@@ -30,7 +48,7 @@ class FileService {
 
           const fullPath = path.join(currentDir, entry.name);
           if (entry.isDirectory()) {
-            if (!ignoreDirs.has(entry.name)) {
+            if (!this.excludedDirs.has(entry.name)) {
               results.push({
                 type: 'directory',
                 name: entry.name,
@@ -42,12 +60,19 @@ class FileService {
             }
           } else if (entry.isFile()) {
             const ext = path.extname(entry.name).toLowerCase();
+            const category = this.getFileCategory(ext);
+
+            if (options.categoryFilter && options.categoryFilter !== 'all' && options.categoryFilter !== category) {
+              continue;
+            }
+
             const stat = fs.statSync(fullPath);
             results.push({
               type: 'file',
               name: entry.name,
               path: fullPath,
               ext,
+              category,
               sizeBytes: stat.size,
               supported: this.supportedExtensions.has(ext),
               mtime: stat.mtime
@@ -63,8 +88,8 @@ class FileService {
     return results;
   }
 
-  searchFiles(dirPath, query, maxResults = 50) {
-    const files = this.listFiles(dirPath, { recursive: true, maxDepth: 4 });
+  searchFiles(dirPath, query, categoryFilter = 'all', maxResults = 50) {
+    const files = this.listFiles(dirPath, { recursive: true, maxDepth: 4, categoryFilter });
     const qLower = query.toLowerCase();
 
     const matches = [];
@@ -106,6 +131,40 @@ class FileService {
     }
 
     return matches;
+  }
+
+  getFileDetails(filePath) {
+    if (!this.security.isPathAllowed(filePath)) {
+      throw new Error(`Security restriction: access denied to ${filePath}`);
+    }
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`File not found: ${filePath}`);
+    }
+
+    const stat = fs.statSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const isText = this.supportedExtensions.has(ext) && stat.size < 5 * 1024 * 1024;
+    let lineCount = 0;
+
+    if (isText) {
+      try {
+        const text = fs.readFileSync(filePath, 'utf8');
+        lineCount = text.split('\n').length;
+      } catch (e) {}
+    }
+
+    return {
+      name: path.basename(filePath),
+      path: filePath,
+      ext,
+      category: this.getFileCategory(ext),
+      sizeBytes: stat.size,
+      sizeFormatted: (stat.size / 1024).toFixed(1) + ' KB',
+      lineCount,
+      mtime: stat.mtime,
+      supported: this.supportedExtensions.has(ext),
+      isText
+    };
   }
 
   readFileContent(filePath) {

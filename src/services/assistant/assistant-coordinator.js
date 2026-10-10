@@ -16,6 +16,53 @@ class AssistantCoordinator {
     return this.currentConversationId;
   }
 
+  loadConversation(convId) {
+    const convFile = path.join(this.storage.paths.conversations, `${convId}.json`);
+    if (fs.existsSync(convFile)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(convFile, 'utf8'));
+        this.currentConversationId = data.id;
+        this.history = data.messages || [];
+        return data;
+      } catch (e) {
+        console.error('Error loading conversation:', e);
+      }
+    }
+    return null;
+  }
+
+  renameConversation(convId, newTitle) {
+    const convFile = path.join(this.storage.paths.conversations, `${convId}.json`);
+    if (fs.existsSync(convFile)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(convFile, 'utf8'));
+        data.title = newTitle.trim() || 'Untitled Conversation';
+        data.updatedAt = new Date().toISOString();
+        fs.writeFileSync(convFile, JSON.stringify(data, null, 2), 'utf8');
+        return true;
+      } catch (e) {
+        console.error('Error renaming conversation:', e);
+      }
+    }
+    return false;
+  }
+
+  deleteConversation(convId) {
+    const convFile = path.join(this.storage.paths.conversations, `${convId}.json`);
+    if (fs.existsSync(convFile)) {
+      try {
+        fs.unlinkSync(convFile);
+        if (this.currentConversationId === convId) {
+          this.startNewConversation();
+        }
+        return true;
+      } catch (e) {
+        console.error('Error deleting conversation:', e);
+      }
+    }
+    return false;
+  }
+
   getConversationsList() {
     const convDir = this.storage.paths.conversations;
     if (!fs.existsSync(convDir)) return [];
@@ -55,7 +102,7 @@ class AssistantCoordinator {
 
   async handleUserMessage({ message, useRAG = true, onToken = null }) {
     if (!this.inference.isModelLoaded()) {
-      throw new Error('No local model is currently loaded. Go to Model Manager to load Qwen.');
+      throw new Error('No local model is currently loaded. Go to Model Manager to load Qwen2.5-Coder.');
     }
 
     // 1. RAG retrieval if enabled

@@ -3,248 +3,648 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ASTRO — Native Desktop AI Assistant</title>
+  <title>ASTRO — Offline Desktop AI Assistant</title>
   <link rel="stylesheet" href="theme/styles.css">
 </head>
-<body>
-  <!-- Header & Status Bar -->
+<body data-theme="dark">
+  <!-- Top Application Header -->
   <header class="topbar">
     <div class="topbar-brand">
-      <span class="brand-logo">ASTRO</span>
-      <span class="brand-badge" id="offline-badge">OFFLINE MODE</span>
+      <button class="btn-sidebar-toggle" id="btn-toggle-sidebar" title="Toggle Sidebar" aria-label="Toggle Sidebar">☰</button>
+      <span class="brand-title">ASTRO</span>
+      <span class="status-badge" id="topbar-offline-badge">
+        <span class="dot offline"></span>
+        <span id="topbar-offline-text">OFFLINE</span>
+      </span>
     </div>
 
-    <div class="topbar-gauges">
-      <div class="gauge-chip" id="model-status-chip">
-        <span class="status-dot idle" id="model-dot"></span>
-        <span id="model-status-text">No Model Loaded</span>
+    <div class="topbar-indicators">
+      <div class="status-badge" id="topbar-model-badge">
+        <span class="dot" id="topbar-model-dot"></span>
+        <span id="topbar-model-text">No Model Loaded</span>
       </div>
-      <div class="gauge-chip" id="hardware-gauge">
-        <span class="status-dot active"></span>
-        <span id="hardware-text">AMD Ryzen 5 · 16GB RAM</span>
+      <div class="status-badge" id="topbar-hw-badge">
+        <span class="dot active"></span>
+        <span id="topbar-hw-text">AMD Ryzen 5</span>
       </div>
+      <button class="btn btn-sm" id="btn-theme-toggle" title="Toggle Light/Dark Theme" aria-label="Toggle Theme">🌓</button>
     </div>
   </header>
 
-  <div class="app-container">
-    <!-- Sidebar Navigation -->
-    <nav class="sidebar">
-      <div class="nav-item active" data-screen="chat-screen">
+  <div class="app-body">
+    <!-- Persistent Left Sidebar with 10 Screens -->
+    <nav class="sidebar" id="app-sidebar" aria-label="Main Navigation">
+      <div class="nav-item active" data-screen="home-screen" tabindex="0">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-text">Home</span>
+      </div>
+      <div class="nav-item" data-screen="chat-screen" tabindex="0">
         <span class="nav-icon">💬</span>
-        <span>01 Home & Chat</span>
+        <span class="nav-text">Chat</span>
       </div>
-      <div class="nav-item" data-screen="models-screen">
-        <span class="nav-icon">⚡</span>
-        <span>02 Model Manager</span>
-      </div>
-      <div class="nav-item" data-screen="files-screen">
+      <div class="nav-item" data-screen="files-screen" tabindex="0">
         <span class="nav-icon">📁</span>
-        <span>03 Files & RAG</span>
+        <span class="nav-text">Files</span>
       </div>
-      <div class="nav-item" data-screen="studio-screen">
+      <div class="nav-item" data-screen="rag-screen" tabindex="0">
+        <span class="nav-icon">📚</span>
+        <span class="nav-text">Knowledge & RAG</span>
+      </div>
+      <div class="nav-item" data-screen="research-screen" tabindex="0">
+        <span class="nav-icon">🔍</span>
+        <span class="nav-text">Research</span>
+      </div>
+      <div class="nav-item" data-screen="studio-screen" tabindex="0">
         <span class="nav-icon">🛠️</span>
-        <span>04 Coding Studio</span>
+        <span class="nav-text">Coding Studio</span>
       </div>
-      <div class="nav-item" data-screen="settings-screen">
+      <div class="nav-item" data-screen="models-screen" tabindex="0">
+        <span class="nav-icon">⚡</span>
+        <span class="nav-text">Model Manager</span>
+      </div>
+      <div class="nav-item" data-screen="voice-screen" tabindex="0">
+        <span class="nav-icon">🎙️</span>
+        <span class="nav-text">Voice</span>
+      </div>
+      <div class="nav-item" data-screen="activity-screen" tabindex="0">
+        <span class="nav-icon">⏱️</span>
+        <span class="nav-text">Activity</span>
+      </div>
+      <div class="nav-item" data-screen="settings-screen" tabindex="0">
         <span class="nav-icon">⚙️</span>
-        <span>05 Settings</span>
-      </div>
-
-      <div class="sidebar-spacer"></div>
-
-      <div class="sidebar-footer">
-        <div><strong>ASTRO Desktop v0.1.0</strong></div>
-        <div>Offline-first · Private</div>
+        <span class="nav-text">Settings</span>
       </div>
     </nav>
 
-    <!-- Content Area -->
+    <!-- Main Content Area -->
     <main class="content-area">
-      <!-- 01: Home & Chat Screen -->
-      <section class="screen active" id="chat-screen">
-        <div class="chat-layout">
-          <!-- Conversation History Sidebar -->
-          <div class="chat-history-sidebar">
-            <button class="btn btn-primary" id="btn-new-chat">+ New Conversation</button>
-            <div class="history-list" id="conversations-list">
-              <!-- Populated by app.js -->
+
+      <!-- ================= 01: HOME SCREEN ================= -->
+      <section class="screen active" id="home-screen">
+        <div class="home-layout">
+          <div class="home-hero">
+            <h1 class="home-title">ASTRO Assistant</h1>
+            <p class="home-subtitle">Private, offline-first intelligence running locally on your laptop.</p>
+          </div>
+
+          <!-- Central Prompt Input -->
+          <div class="home-input-card">
+            <textarea class="home-prompt-area" id="home-prompt-input" placeholder="Ask a question, search documents, or request code modifications..."></textarea>
+            <div class="home-input-actions">
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-sm" id="home-mic-btn" title="Voice Input">🎙️ Mic</button>
+                <label style="font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 5px;">
+                  <input type="checkbox" id="home-rag-toggle" checked> Local RAG
+                </label>
+              </div>
+              <button class="btn btn-primary" id="home-prompt-send">Send to Chat</button>
             </div>
           </div>
 
-          <!-- Main Chat Stream -->
-          <div class="chat-main">
-            <div class="chat-messages" id="chat-messages-container">
-              <div class="message assistant">
-                <div class="message-bubble">
-                  Welcome to <strong>ASTRO</strong>! I am your native, offline-first AI desktop assistant.
-                  <br><br>
-                  To get started, open <strong>02 Model Manager</strong> to discover and download <strong>Qwen2.5-Coder-7B</strong>, or query existing documents using local RAG.
+          <!-- Quick Actions Grid -->
+          <div class="quick-actions-grid">
+            <div class="quick-action-btn" id="qa-find-files">
+              <span class="qa-icon">📁</span>
+              <span class="qa-title">Find Local Files</span>
+              <span class="qa-desc">Search files and inspect code in workspace</span>
+            </div>
+            <div class="quick-action-btn" id="qa-ask-rag">
+              <span class="qa-icon">📚</span>
+              <span class="qa-title">Query Knowledge</span>
+              <span class="qa-desc">Retrieve answers from indexed documents</span>
+            </div>
+            <div class="quick-action-btn" id="qa-start-coding">
+              <span class="qa-icon">🛠️</span>
+              <span class="qa-title">Coding Task</span>
+              <span class="qa-desc">Inspect project, review diffs & run tests</span>
+            </div>
+            <div class="quick-action-btn" id="qa-research">
+              <span class="qa-icon">🔍</span>
+              <span class="qa-title">Research</span>
+              <span class="qa-desc">Local-first knowledge and web queries</span>
+            </div>
+          </div>
+
+          <!-- Two-column status and recent sections -->
+          <div class="home-columns">
+            <div class="card">
+              <div class="card-title">Local Model Status</div>
+              <div id="home-model-card-content" style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                Checking model status...
+              </div>
+              <div style="margin-top: 12px;">
+                <button class="btn btn-sm btn-primary" id="home-btn-manage-models">Open Model Manager</button>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">System & Storage Readiness</div>
+              <div id="home-system-card-content" style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
+                Detecting hardware resources...
+              </div>
+            </div>
+          </div>
+
+          <div class="home-columns">
+            <div class="card">
+              <div class="card-title">Recent Conversations</div>
+              <div id="home-recent-conversations" style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+                No recent conversations.
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Knowledge Collections</div>
+              <div id="home-recent-collections" style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+                Loading collections...
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 02: CHAT SCREEN ================= -->
+      <section class="screen" id="chat-screen">
+        <div class="chat-workspace">
+          <!-- Conversation History Sidebar -->
+          <aside class="chat-history-sidebar">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <span style="font-size: 12px; font-weight: 600;">Conversations</span>
+              <button class="btn btn-sm btn-primary" id="btn-chat-new" title="New Conversation">+ New</button>
+            </div>
+            <div id="chat-conv-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+              <!-- Populated by app.js -->
+            </div>
+          </aside>
+
+          <!-- Main Chat Panel -->
+          <div class="chat-main-area">
+            <div class="chat-header-bar">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="chat-active-conv-title" style="font-weight: 600; font-size: 13px;">New Conversation</span>
+                <span class="status-badge" id="chat-processing-mode">Local Offline</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-sm" id="btn-chat-rename">Rename</button>
+                <button class="btn btn-sm btn-danger" id="btn-chat-delete">Delete</button>
+              </div>
+            </div>
+
+            <div class="chat-messages-scroll" id="chat-messages-scroll">
+              <div class="msg-row assistant">
+                <div class="msg-bubble">
+                  ASTRO is ready. Ask questions, explore documents, or request code assistance. All interactions remain completely private and on-device.
                 </div>
               </div>
             </div>
 
-            <div class="chat-input-bar">
-              <div class="chat-controls">
-                <label class="rag-toggle-wrap">
-                  <input type="checkbox" id="rag-checkbox" checked>
-                  <span>Enable Local RAG (Offline Knowledge)</span>
+            <!-- Compose Bar -->
+            <div class="chat-compose-area">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                  <input type="checkbox" id="chat-rag-checkbox" checked> Local RAG Ingestion
                 </label>
-                <div id="streaming-metrics" style="font-size: 0.72rem; color: var(--text-muted);"></div>
-                <button class="btn btn-danger btn-sm" id="btn-stop-gen" style="display: none;">Stop</button>
+                <div id="chat-metrics-bar" style="font-size: 11.5px; color: var(--text-muted);"></div>
+                <button class="btn btn-danger btn-sm" id="btn-chat-stop" style="display: none;">Stop</button>
               </div>
 
-              <div class="chat-input-row">
-                <textarea class="chat-textarea" id="chat-input" placeholder="Ask ASTRO anything or request code changes..."></textarea>
-                <button class="btn btn-primary" id="btn-send">Send</button>
+              <div style="display: flex; gap: 8px;">
+                <textarea class="chat-compose-input" id="chat-input-text" placeholder="Type a message (Shift+Enter for newline)..."></textarea>
+                <button class="btn btn-primary" id="btn-chat-send">Send</button>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 02: Model Manager Screen -->
-      <section class="screen" id="models-screen">
+      <!-- ================= 03: FILES SCREEN ================= -->
+      <section class="screen" id="files-screen">
         <div class="screen-header">
           <div>
-            <h1 class="screen-title">Local Model Manager</h1>
-            <p class="screen-subtitle">Discover, download, verify, load, and switch local GGUF models directly on device.</p>
+            <h2 class="screen-title">File Intelligence</h2>
+            <p class="screen-desc">Scan, search, and inspect files within user-approved directories.</p>
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-refresh-hf">Discover on Hugging Face</button>
+          <button class="btn btn-primary btn-sm" id="btn-files-pick-folder">Choose Folder</button>
         </div>
 
-        <div class="card" id="hardware-banner" style="margin-bottom: 20px;">
-          <div class="card-header">
-            <div>
-              <strong>Hardware Optimization Status</strong>
-              <div id="hw-compat-notes" style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px;">Detecting CPU & RAM...</div>
+        <div class="files-layout">
+          <!-- Folder Browser / Filters -->
+          <div class="panel">
+            <div class="card-title">Filter & Scope</div>
+            <div style="font-size: 11.5px; color: var(--text-muted); word-break: break-all;" id="files-current-dir">
+              Scope: c:\aditya\ASTRO
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+              <select class="select-input" id="files-category-filter">
+                <option value="all">All File Types</option>
+                <option value="code">Code Files (.js, .py, .ts, etc.)</option>
+                <option value="docs">Documents (.md, .txt)</option>
+                <option value="data">Data Files (.json, .csv, .yaml)</option>
+              </select>
+            </div>
+            <div class="card-title" style="margin-top: 14px;">Exclusions</div>
+            <div style="font-size: 11.5px; color: var(--text-muted);">
+              Excluded folders: <code id="files-exclusions-label">node_modules, .git</code>
+            </div>
+          </div>
+
+          <!-- Files List / Search Results -->
+          <div class="panel">
+            <div style="display: flex; gap: 8px;">
+              <input type="text" class="input-text" id="files-search-query" placeholder="Search filename or content..." style="flex: 1;">
+              <button class="btn btn-sm btn-primary" id="btn-files-search">Search</button>
+            </div>
+            <div id="files-results-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
+              <!-- Populated by app.js -->
+            </div>
+          </div>
+
+          <!-- File Details Panel -->
+          <div class="panel" id="files-details-panel">
+            <div class="card-title">File Details</div>
+            <div id="file-details-content" style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+              Select a file to inspect details, line count, and open in desktop viewer.
+            </div>
+            <div style="margin-top: auto; display: flex; gap: 8px;">
+              <button class="btn btn-sm btn-primary" id="btn-files-open-os" style="display: none;">Open in OS</button>
+              <button class="btn btn-sm" id="btn-files-index-rag" style="display: none;">Add to RAG</button>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="model-grid" id="models-grid">
+      <!-- ================= 04: KNOWLEDGE & RAG SCREEN ================= -->
+      <section class="screen" id="rag-screen">
+        <div class="screen-header">
+          <div>
+            <h2 class="screen-title">Knowledge Collections & Local RAG</h2>
+            <p class="screen-desc">Manage offline document indexes and inspect chunk citations.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm" id="btn-rag-create-coll">+ New Collection</button>
+            <button class="btn btn-primary btn-sm" id="btn-rag-rebuild">Rebuild Index</button>
+          </div>
+        </div>
+
+        <div class="rag-cols">
+          <!-- Collections sidebar -->
+          <div class="panel">
+            <div class="card-title">Collections</div>
+            <div id="rag-collections-list" style="display: flex; flex-direction: column; gap: 4px; overflow-y: auto; flex: 1;">
+              <!-- Populated by app.js -->
+            </div>
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-subtle); font-size: 11.5px; color: var(--text-muted);">
+              Status: <span style="color: var(--accent-success);">● Engine Ready</span><br>
+              Type: Local TF-IDF & Inverted Index
+            </div>
+          </div>
+
+          <!-- Collection details & Test Retrieval -->
+          <div class="panel">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong id="rag-active-coll-name">Collection: default</strong>
+                <div id="rag-active-coll-meta" style="font-size: 11.5px; color: var(--text-muted);">0 documents · 0 chunks</div>
+              </div>
+              <button class="btn btn-sm btn-danger" id="btn-rag-delete-coll">Delete Collection</button>
+            </div>
+
+            <div style="margin-top: 14px;">
+              <div class="card-title">Indexed Documents in Collection</div>
+              <div id="rag-docs-table-wrap" style="max-height: 180px; overflow-y: auto; margin-top: 6px;">
+                <table class="data-table" id="rag-docs-table">
+                  <thead>
+                    <tr><th>Document</th><th>Chunks</th><th>Indexed At</th><th>Action</th></tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="margin-top: 16px;">
+              <div class="card-title">Test Question Against Collection</div>
+              <div style="display: flex; gap: 8px; margin-top: 6px;">
+                <input type="text" class="input-text" id="rag-query-input" placeholder="Query knowledge collection..." style="flex: 1;">
+                <button class="btn btn-sm btn-primary" id="btn-rag-run-query">Test Query</button>
+              </div>
+              <div id="rag-query-citations" style="margin-top: 10px; max-height: 150px; overflow-y: auto;">
+                <!-- Populated by app.js -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 05: RESEARCH SCREEN ================= -->
+      <section class="screen" id="research-screen">
+        <div class="screen-header">
+          <div>
+            <h2 class="screen-title">Research Workspace</h2>
+            <p class="screen-desc">Local-first document research with optional external web queries.</p>
+          </div>
+        </div>
+
+        <div style="max-width: 860px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 14px;">
+          <div class="card">
+            <div style="display: flex; gap: 10px;">
+              <input type="text" class="input-text" id="research-query-input" placeholder="Enter research topic..." style="flex: 1;">
+              <button class="btn btn-primary" id="btn-research-start">Search</button>
+              <button class="btn btn-danger btn-sm" id="btn-research-cancel" style="display: none;">Cancel</button>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+              <label style="font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                <input type="checkbox" id="research-online-toggle">
+                <span>Enable Online Research (Requires External Service Permission)</span>
+              </label>
+              <span id="research-status-label" style="font-size: 11.5px; color: var(--text-muted);">Idle</span>
+            </div>
+          </div>
+
+          <div id="research-notice-box" class="notice-box info" style="display: none;"></div>
+
+          <div class="card">
+            <div class="card-title">Local Workspace Results</div>
+            <div id="research-local-results" style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+              No research queries performed yet.
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">External Internet Sources</div>
+            <div id="research-web-results" style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">
+              Internet research is currently disabled.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 06: CODING STUDIO SCREEN ================= -->
+      <section class="screen" id="studio-screen">
+        <div class="screen-header">
+          <div>
+            <h2 class="screen-title">Coding Studio & Safe Actions</h2>
+            <p class="screen-desc">Workspace file browser, proposed diff review, and terminal execution with permission controls.</p>
+          </div>
+        </div>
+
+        <div class="studio-grid">
+          <!-- File tree -->
+          <div class="panel">
+            <div class="card-title">Project Tree</div>
+            <div id="studio-tree-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+              <!-- Populated by app.js -->
+            </div>
+          </div>
+
+          <!-- Code & Diff Viewer -->
+          <div class="panel">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span id="studio-active-file-label" style="font-weight: 600; font-size: 12.5px;">No File Open</span>
+              <div style="display: flex; gap: 6px;">
+                <button class="btn btn-sm btn-danger" id="btn-studio-reject-diff" style="display: none;">Reject Diff</button>
+                <button class="btn btn-sm btn-primary" id="btn-studio-apply-diff" style="display: none;">Approve & Apply (Rule 14)</button>
+              </div>
+            </div>
+            <div class="code-box" id="studio-editor-box">// Select a file from the tree to view its contents</div>
+          </div>
+
+          <!-- Terminal Panel -->
+          <div class="panel">
+            <div class="card-title">Terminal Output</div>
+            <div class="terminal-container" id="studio-terminal-output">ASTRO Terminal initialized. Commands require explicit approval (Rule 9).</div>
+            <div style="display: flex; gap: 6px; margin-top: 6px;">
+              <input type="text" class="input-text" id="studio-cmd-input" placeholder="npm test..." style="flex: 1; font-family: var(--font-mono); font-size: 11.5px;">
+              <button class="btn btn-sm btn-primary" id="btn-studio-run-cmd">Run</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 07: MODEL MANAGER SCREEN ================= -->
+      <section class="screen" id="models-screen">
+        <div class="screen-header">
+          <div>
+            <h2 class="screen-title">Local Model Manager</h2>
+            <p class="screen-desc">Discover, download, verify, and load local GGUF models directly on device.</p>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-models-discover">Discover on Hugging Face</button>
+        </div>
+
+        <div class="card" id="models-hw-banner">
+          <div class="card-title">Hardware Profile & Compatibility</div>
+          <div id="models-hw-details" style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-top: 4px;">
+            Detecting hardware profile...
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px;" id="models-cards-grid">
           <!-- Populated by app.js -->
         </div>
       </section>
 
-      <!-- 03: Files & Knowledge (RAG) Screen -->
-      <section class="screen" id="files-screen">
+      <!-- ================= 08: VOICE SCREEN ================= -->
+      <section class="screen" id="voice-screen">
         <div class="screen-header">
           <div>
-            <h1 class="screen-title">Files & Local Knowledge (RAG)</h1>
-            <p class="screen-subtitle">Index workspace documents for 100% offline retrieval with verified citations.</p>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-sm" id="btn-pick-workspace">Select Folder</button>
-            <button class="btn btn-primary btn-sm" id="btn-index-all">Index Workspace</button>
+            <h2 class="screen-title">Voice Interaction</h2>
+            <p class="screen-desc">Local speech-to-text and spoken response preferences.</p>
           </div>
         </div>
 
-        <div class="rag-layout">
-          <div class="file-browser-panel">
-            <h3>Workspace Files</h3>
-            <div style="display: flex; gap: 8px;">
-              <input type="text" id="file-search-input" placeholder="Search files..." style="flex: 1; padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: #fff; font-size: 0.8rem;">
-            </div>
-            <div class="file-list" id="workspace-file-list">
-              <!-- Populated by app.js -->
+        <div style="max-width: 650px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 16px;">
+          <div class="card voice-hero">
+            <div class="mic-circle" id="voice-mic-circle" title="Click to speak">🎙️</div>
+            <div id="voice-status-heading" style="font-weight: 600; font-size: 14px;">Microphone Idle</div>
+            <div id="voice-transcription-preview" style="font-size: 12px; color: var(--text-muted); text-align: center; max-width: 480px;">
+              Speech-to-text preview will appear here.
             </div>
           </div>
 
-          <div class="rag-preview-panel">
-            <h3>Local RAG Index Stats</h3>
-            <div id="rag-stats-box" style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6;">
-              <!-- Populated by app.js -->
+          <div class="notice-box warning" id="voice-missing-notice">
+            <strong>Local Speech Engine Status:</strong><br>
+            <span id="voice-missing-text">Checking local voice engine status...</span>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Voice Preferences</div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Spoken Responses (TTS)</div>
+                <div class="setting-subtitle">Read assistant answers aloud through system audio</div>
+              </div>
+              <input type="checkbox" id="voice-tts-pref">
             </div>
-
-            <h3 style="margin-top: 16px;">Test Retrieval Query</h3>
-            <div style="display: flex; gap: 8px;">
-              <input type="text" id="rag-test-input" placeholder="Query offline index..." style="flex: 1; padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: #fff; font-size: 0.8rem;">
-              <button class="btn btn-primary btn-sm" id="btn-rag-test">Test</button>
-            </div>
-            <div id="rag-test-results" style="flex: 1; overflow-y: auto; font-size: 0.78rem; margin-top: 8px; color: var(--text-secondary);"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 04: Coding Studio Screen -->
-      <section class="screen" id="studio-screen">
-        <div class="screen-header">
-          <div>
-            <h1 class="screen-title">Coding Studio & Safe Actions</h1>
-            <p class="screen-subtitle">Review proposed code diffs, inspect files, and execute approved terminal commands.</p>
-          </div>
-        </div>
-
-        <div class="studio-layout">
-          <div class="studio-panel">
-            <h3>Project Files</h3>
-            <div class="file-list" id="studio-file-tree"></div>
-          </div>
-
-          <div class="studio-panel">
-            <h3>Diff Review (Before / After)</h3>
-            <div class="diff-viewer" id="studio-diff-viewer">// Select a proposed change to review diff</div>
-            <div style="display: flex; gap: 8px; justify-content: flex-end;">
-              <button class="btn btn-danger btn-sm" id="btn-reject-diff">Reject</button>
-              <button class="btn btn-primary btn-sm" id="btn-apply-diff">Approve & Apply (Rule 14)</button>
-            </div>
-          </div>
-
-          <div class="studio-panel">
-            <h3>Terminal & Execution</h3>
-            <div class="terminal-box" id="studio-terminal-box">ASTRO Terminal ready. Commands require approval (Rule 9).</div>
-            <div style="display: flex; gap: 8px;">
-              <input type="text" id="terminal-input" placeholder="npm test..." style="flex: 1; padding: 6px 10px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); color: #fff; font-size: 0.8rem; font-family: var(--font-mono);">
-              <button class="btn btn-primary btn-sm" id="btn-run-cmd">Execute</button>
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Microphone Permissions</div>
+                <div class="setting-subtitle">Desktop audio capture state</div>
+              </div>
+              <span id="voice-perm-label" style="font-size: 12px; color: var(--accent-success);">Granted (Local)</span>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 05: Settings & Diagnostics Screen -->
+      <!-- ================= 09: ACTIVITY SCREEN ================= -->
+      <section class="screen" id="activity-screen">
+        <div class="screen-header">
+          <div>
+            <h2 class="screen-title">Activity & Background Tasks</h2>
+            <p class="screen-desc">Real-time status of downloads, model loading, indexing, and command execution.</p>
+          </div>
+          <button class="btn btn-sm" id="btn-activity-clear">Clear Completed</button>
+        </div>
+
+        <div class="activity-list" id="activity-tasks-container">
+          <div style="font-size: 12px; color: var(--text-muted); padding: 16px; text-align: center;">
+            No background activities recorded.
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 10: SETTINGS SCREEN ================= -->
       <section class="screen" id="settings-screen">
         <div class="screen-header">
           <div>
-            <h1 class="screen-title">Settings & Diagnostics</h1>
-            <p class="screen-subtitle">Hardware diagnostics, privacy constraints, and local configuration.</p>
+            <h2 class="screen-title">Settings & System Diagnostics</h2>
+            <p class="screen-desc">Manage privacy, models, files, voice, performance, and view diagnostics.</p>
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-save-settings">Save Settings</button>
+          <button class="btn btn-primary btn-sm" id="btn-settings-save">Save Settings</button>
         </div>
 
-        <div class="settings-section">
-          <h3>Privacy & Network Controls</h3>
-          <div class="settings-row">
-            <div>
-              <div class="settings-label">Enforce Offline Mode</div>
-              <div class="settings-desc">Disable all external network connections and cloud telemetry.</div>
-            </div>
-            <input type="checkbox" id="setting-offline-only" checked>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-label">Require Confirmation for Terminal Commands</div>
-              <div class="settings-desc">Enforce explicit user approval before executing desktop commands (Rule 9).</div>
-            </div>
-            <input type="checkbox" id="setting-confirm-cmd" checked>
-          </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-label">Require Confirmation for File Writes</div>
-              <div class="settings-desc">Show diffs and require confirmation before modifying user project files (Rule 14).</div>
-            </div>
-            <input type="checkbox" id="setting-confirm-write" checked>
-          </div>
+        <div class="settings-nav-tabs">
+          <div class="settings-tab active" data-tab="tab-appearance">Appearance</div>
+          <div class="settings-tab" data-tab="tab-privacy">Privacy</div>
+          <div class="settings-tab" data-tab="tab-models">Models & Inference</div>
+          <div class="settings-tab" data-tab="tab-permissions">Permissions</div>
+          <div class="settings-tab" data-tab="tab-diagnostics">Diagnostics</div>
         </div>
 
-        <div class="settings-section">
-          <h3>Hardware & Engine Diagnostics</h3>
-          <div id="settings-hw-report" style="font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary);">
-            Loading hardware diagnostics...
+        <div id="settings-tab-content">
+          <!-- Appearance Tab -->
+          <div class="settings-pane" id="tab-appearance">
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Application Theme</div>
+                <div class="setting-subtitle">Restrained dark theme or high-contrast light theme</div>
+              </div>
+              <select class="select-input" id="setting-theme-select">
+                <option value="dark">Dark Theme (Default)</option>
+                <option value="light">Light Theme</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Sidebar Behavior</div>
+                <div class="setting-subtitle">Keep sidebar collapsed by default on startup</div>
+              </div>
+              <input type="checkbox" id="setting-sidebar-collapse">
+            </div>
+          </div>
+
+          <!-- Privacy Tab -->
+          <div class="settings-pane" id="tab-privacy" style="display: none;">
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Offline-First Enforcement</div>
+                <div class="setting-subtitle">Block all outbound cloud connections and telemetry (Rule 2 & Rule 4)</div>
+              </div>
+              <input type="checkbox" id="setting-privacy-offline" checked>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Allow External Web Research</div>
+                <div class="setting-subtitle">Permit Wikipedia / public knowledge queries in the Research tab</div>
+              </div>
+              <input type="checkbox" id="setting-privacy-external">
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Delete All Stored Conversations</div>
+                <div class="setting-subtitle">Permanently delete local chat history from ASTRO_DATA</div>
+              </div>
+              <button class="btn btn-danger btn-sm" id="btn-privacy-delete-data">Delete History</button>
+            </div>
+          </div>
+
+          <!-- Models Tab -->
+          <div class="settings-pane" id="tab-models" style="display: none;">
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Default Model</div>
+                <div class="setting-subtitle">Model ID to prefer for coding and instruction tasks</div>
+              </div>
+              <input type="text" class="input-text" id="setting-default-model" value="qwen2.5-coder-7b-instruct" style="width: 220px;">
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">CPU Inference Threads</div>
+                <div class="setting-subtitle">Allocated logical threads (Optimal for Ryzen 5: 6 threads)</div>
+              </div>
+              <input type="number" class="input-text" id="setting-cpu-threads" value="6" min="1" max="12" style="width: 80px;">
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Context Window Size</div>
+                <div class="setting-subtitle">Token context length for local generation</div>
+              </div>
+              <input type="number" class="input-text" id="setting-context-window" value="4096" min="1024" max="32768" style="width: 90px;">
+            </div>
+          </div>
+
+          <!-- Permissions Tab -->
+          <div class="settings-pane" id="tab-permissions" style="display: none;">
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Require Approval for Terminal Commands</div>
+                <div class="setting-subtitle">Enforce confirmation dialogue before executing commands (Rule 9)</div>
+              </div>
+              <input type="checkbox" id="setting-perm-cmd" checked>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Require Approval for File Modifications</div>
+                <div class="setting-subtitle">Show unified diff and require user confirmation (Rule 14)</div>
+              </div>
+              <input type="checkbox" id="setting-perm-write" checked>
+            </div>
+          </div>
+
+          <!-- Diagnostics Tab -->
+          <div class="settings-pane" id="tab-diagnostics" style="display: none;">
+            <div class="card">
+              <div class="card-title">System & Diagnostic Report</div>
+              <pre id="settings-diag-output" style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary); margin-top: 8px; line-height: 1.6;">
+Loading diagnostics...
+              </pre>
+            </div>
           </div>
         </div>
       </section>
+
     </main>
   </div>
+
+  <!-- Bottom Persistent Status Bar -->
+  <footer class="bottombar">
+    <div class="bottombar-left">
+      <span class="status-badge" id="bottom-offline-status">
+        <span class="dot offline"></span>
+        <span id="bottom-offline-text">Offline Mode</span>
+      </span>
+      <span class="bottombar-link" id="bottom-model-status">
+        <span class="dot" id="bottom-model-dot"></span>
+        <span id="bottom-model-text">No Model Loaded</span>
+      </span>
+    </div>
+
+    <div class="bottombar-right">
+      <span class="bottombar-link" id="bottom-activity-link">
+        <span>⏱️</span>
+        <span id="bottom-activity-text">0 active tasks</span>
+      </span>
+    </div>
+  </footer>
 
   <script src="app.js"></script>
 </body>
