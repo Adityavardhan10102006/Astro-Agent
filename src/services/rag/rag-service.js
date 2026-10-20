@@ -1,18 +1,32 @@
 const fs = require('fs');
 const path = require('path');
+const EventEmitter = require('events');
+const { DocumentExtractorRegistry } = require('./extractors/extractor-registry');
+const { DocumentChunker } = require('./chunker');
+const { LibraryService } = require('./library-service');
+const { RetrievalService } = require('./retrieval-service');
+const { EmbeddingManager } = require('../models/embedding-manager');
 
-class RAGService {
-  constructor(storageService, options = {}) {
+class RAGService extends EventEmitter {
+  constructor(storageService, securityService = null, embeddingManager = null, options = {}) {
+    super();
     this.storage = storageService;
-    this.chunkSize = options.chunkSize || 400; // approximate words
-    this.chunkOverlap = options.chunkOverlap || 60;
+    this.security = securityService || { isPathAllowed: () => true };
+    this.embeddingManager = embeddingManager || new EmbeddingManager(storageService);
+    this.extractors = new DocumentExtractorRegistry();
+    this.chunker = new DocumentChunker(options);
+    this.library = new LibraryService(this.storage, this.security, this.extractors);
+    this.retrieval = new RetrievalService(options);
+
     this.activeCollectionName = 'default';
     this.collection = {
       name: 'default',
       updatedAt: null,
-      documents: {}, // filePath -> { docName, chunkCount, status: 'indexed', indexedAt }
-      chunks: []     // [{ id, docPath, docName, chunkIndex, text, terms }]
+      documents: {}, // filePath -> { docName, chunkCount, status, indexedAt, mtime, contentHash }
+      chunks: []     // [{ id, docPath, docName, chunkIndex, heading, text, terms, embedding }]
     };
+
+    this.isIndexing = false;
     this.loadIndex(this.activeCollectionName);
   }
 
@@ -143,176 +157,360 @@ class RAGService {
   }
 
   tokenize(text) {
-    if (!text) return [];
-    return text
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, ' ')
-      .split(/\s+/)
-      .filter(w => w.length > 2);
+    return this.chunker.tokenize(text);
   }
 
-  createChunks(text, docPath) {
-    const docName = path.basename(docPath);
-    const paragraphs = text.split(/\n\s*\n/);
-    const chunks = [];
-    let currentWords = [];
-    let chunkIndex = 0;
+  // --- File Library Actions (Section 1) ---
 
-    for (const para of paragraphs) {
-      const words = para.trim().split(/\s+/).filter(Boolean);
-      if (words.length === 0) continue;
+  addLibraryFolder(folderPath) {
+    return this.library.addRoot(folderPath);
+  }
 
-      if (currentWords.length + words.length <= this.chunkSize) {
-        currentWords.push(...words);
-      } else {
-        if (currentWords.length > 0) {
-          const chunkText = currentWords.join(' ');
-          chunks.push({
-            id: `${docName}_chunk_${chunkIndex++}`,
-            docPath,
-            docName,
-            chunkIndex: chunkIndex - 1,
-            text: chunkText,
-            terms: this.tokenize(chunkText)
-          });
-          currentWords = currentWords.slice(-this.chunkOverlap);
-        }
-        currentWords.push(...words);
+  addLibraryFile(filePath) {
+    return this.library.addRoot(filePath);
+  }
+
+  removeLibraryRoot(rootPath) {
+    const roots = this.library.removeRoot(rootPath);
+    // Prune chunks belonging to files under this root
+    const resolved = path.resolve(rootPath);
+    this.collection.chunks = this.collection.chunks.filter(c => !c.docPath.startsWith(resolved));
+    for (const docPath of Object.keys(this.collection.documents)) {
+      if (docPath.startsWith(resolved)) {
+        delete this.collection.documents[docPath];
       }
     }
+    this.saveIndex();
+    return roots;
+  }
 
-    if (currentWords.length > 0) {
-      const chunkText = currentWords.join(' ');
-      chunks.push({
-        id: `${docName}_chunk_${chunkIndex++}`,
-        docPath,
-        docName,
-        chunkIndex: chunkIndex - 1,
-        text: chunkText,
-        terms: this.tokenize(chunkText)
-      });
+  getLibraryRoots() {
+    return this.library.getRoots();
+  }
+
+  getLibraryFiles() {
+    return this.library.getLibraryFiles();
+  }
+
+  getExclusions() {
+    return this.library.getExclusions();
+  }
+
+  setExclusions(exclusions) {
+    return this.library.setExclusions(exclusions);
+  }
+
+  // --- Incremental Indexing Pipeline (Section 3 & 4) ---
+
+  async indexLibrary(options = {}) {
+    if (this.isIndexing) {
+      throw new Error('Indexing job is already in progress.');
     }
 
-    return chunks;
+    this.isIndexing = true;
+    this.library.isIndexing = true;
+    this.library.cancelRequested = false;
+
+    const eligibleFiles = this.library.scanEligibleFiles();
+    const totalFiles = eligibleFiles.length;
+    let processedCount = 0;
+    let newlyIndexedCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+
+    this.emit('indexStarted', { totalFiles });
+
+    try {
+      // 1. Process eligible files incrementally
+      for (const filePath of eligibleFiles) {
+        if (this.library.cancelRequested) {
+          this.emit('indexCancelled', { processed: processedCount, total: totalFiles });
+          break;
+        }
+
+        const stat = fs.statSync(filePath);
+        const mtime = stat.mtime.toISOString();
+        const existingRecord = this.library.getFileRecord(filePath);
+
+        // Incremental check: check if file is unchanged (mtime matches)
+        if (existingRecord && existingRecord.mtime === mtime && existingRecord.status === 'indexed') {
+          skippedCount++;
+          processedCount++;
+          if (options.onProgress) {
+            options.onProgress({ processed: processedCount, total: totalFiles, filename: path.basename(filePath), status: 'skipped' });
+          }
+          continue;
+        }
+
+        // Content changed or new file: compute hash and extract
+        const contentHash = this.library.computeFileHash(filePath);
+        if (existingRecord && existingRecord.contentHash === contentHash && existingRecord.status === 'indexed') {
+          // Content unchanged despite mtime touch
+          skippedCount++;
+          processedCount++;
+          continue;
+        }
+
+        try {
+          // Extract document
+          const extracted = await this.extractors.extract(filePath);
+
+          if (extracted.metadata.empty) {
+            this.library.recordFileStatus(filePath, 'unsupported', {
+              sizeBytes: stat.size,
+              mtime,
+              contentHash,
+              error: extracted.metadata.notice || 'Empty or unextractable content'
+            });
+            failedCount++;
+            processedCount++;
+            continue;
+          }
+
+          // Chunk document
+          const chunks = this.chunker.chunkDocument(extracted, filePath);
+
+          // Generate embeddings if embedding model is ready
+          if (this.embeddingManager && this.embeddingManager.isEmbeddingModelLoaded()) {
+            for (const chunk of chunks) {
+              try {
+                chunk.embedding = await this.embeddingManager.generateEmbedding(chunk.text);
+              } catch (embErr) {
+                // Non-fatal, fallback to lexical
+              }
+            }
+          }
+
+          // Remove prior chunks for this doc and add fresh chunks
+          this.collection.chunks = this.collection.chunks.filter(c => c.docPath !== filePath);
+          this.collection.chunks.push(...chunks);
+
+          this.collection.documents[filePath] = {
+            docName: path.basename(filePath),
+            chunkCount: chunks.length,
+            status: 'indexed',
+            indexedAt: new Date().toISOString(),
+            mtime,
+            contentHash
+          };
+
+          this.library.recordFileStatus(filePath, 'indexed', {
+            sizeBytes: stat.size,
+            mtime,
+            contentHash,
+            chunkCount: chunks.length
+          });
+
+          newlyIndexedCount++;
+        } catch (err) {
+          failedCount++;
+          this.library.recordFileStatus(filePath, 'failed', {
+            sizeBytes: stat.size,
+            mtime,
+            contentHash,
+            error: err.message
+          });
+        }
+
+        processedCount++;
+        if (options.onProgress) {
+          options.onProgress({
+            processed: processedCount,
+            total: totalFiles,
+            filename: path.basename(filePath),
+            status: 'indexed'
+          });
+        }
+
+        // Yield slightly between files to keep UI thread responsive
+        await new Promise(r => setImmediate(r));
+      }
+
+      // 2. Prune files from collection if deleted on disk
+      let prunedCount = 0;
+      const eligibleSet = new Set(eligibleFiles);
+      for (const indexedPath of Object.keys(this.collection.documents)) {
+        if (!eligibleSet.has(indexedPath) || !fs.existsSync(indexedPath)) {
+          this.collection.chunks = this.collection.chunks.filter(c => c.docPath !== indexedPath);
+          delete this.collection.documents[indexedPath];
+          this.library.removeFileRecord(indexedPath);
+          prunedCount++;
+        }
+      }
+
+      this.saveIndex();
+
+      const summary = {
+        totalFiles,
+        total: totalFiles,
+        processedCount,
+        processed: processedCount,
+        newlyIndexedCount,
+        indexed: newlyIndexedCount,
+        skippedCount,
+        skipped: skippedCount,
+        failedCount,
+        failed: failedCount,
+        pruned: prunedCount,
+        totalChunks: this.collection.chunks.length,
+        cancelled: this.library.cancelRequested
+      };
+
+      this.emit('indexCompleted', summary);
+      return summary;
+    } finally {
+      this.isIndexing = false;
+      this.library.isIndexing = false;
+    }
+  }
+
+  stopIndexing() {
+    return this.library.cancelIndexing();
+  }
+
+  async rebuildIndex(options = {}) {
+    this.collection.chunks = [];
+    this.collection.documents = {};
+    this.saveIndex();
+
+    // Reset library file statuses so all files reprocess
+    for (const fileMeta of Object.values(this.library.state.files)) {
+      fileMeta.status = 'pending';
+      fileMeta.mtime = null;
+      fileMeta.contentHash = null;
+    }
+    this.library.saveLibrary();
+
+    return this.indexLibrary(options);
+  }
+
+  // --- Document addition / removal (Backwards Compatibility) ---
+
+  indexDocument(docPath, content = null) {
+    if (content === null) {
+      const resolved = path.resolve(docPath);
+      if (fs.existsSync(resolved)) {
+        content = fs.readFileSync(resolved, 'utf8');
+      } else {
+        throw new Error(`File not found: ${resolved}`);
+      }
+    }
+    return this.addDocument(docPath, content);
   }
 
   addDocument(docPath, content) {
-    this.collection.chunks = this.collection.chunks.filter(c => c.docPath !== docPath);
+    const resolved = path.resolve(docPath);
+    this.collection.chunks = this.collection.chunks.filter(c => c.docPath !== resolved);
 
-    const chunks = this.createChunks(content, docPath);
+    const extracted = {
+      text: content,
+      sections: [{ heading: path.basename(docPath), text: content }]
+    };
+    const chunks = this.chunker.chunkDocument(extracted, resolved);
     this.collection.chunks.push(...chunks);
-    this.collection.documents[docPath] = {
-      docName: path.basename(docPath),
+
+    this.collection.documents[resolved] = {
+      docName: path.basename(resolved),
       chunkCount: chunks.length,
       status: 'indexed',
       indexedAt: new Date().toISOString()
     };
+
+    this.library.recordFileStatus(resolved, 'indexed', {
+      sizeBytes: Buffer.byteLength(content, 'utf8'),
+      chunkCount: chunks.length
+    });
 
     this.saveIndex();
     return chunks.length;
   }
 
   removeDocument(docPath) {
-    this.collection.chunks = this.collection.chunks.filter(c => c.docPath !== docPath);
-    delete this.collection.documents[docPath];
+    const resolved = path.resolve(docPath);
+    this.collection.chunks = this.collection.chunks.filter(c => c.docPath !== resolved);
+    delete this.collection.documents[resolved];
+    this.library.removeFileRecord(resolved);
     this.saveIndex();
     return true;
   }
 
-  rebuildIndex(docContentMap = {}) {
-    this.collection.chunks = [];
-    for (const [docPath, content] of Object.entries(docContentMap)) {
-      const chunks = this.createChunks(content, docPath);
-      this.collection.chunks.push(...chunks);
-      this.collection.documents[docPath] = {
-        docName: path.basename(docPath),
-        chunkCount: chunks.length,
-        status: 'indexed',
-        indexedAt: new Date().toISOString()
-      };
-    }
-    this.saveIndex();
-    return this.collection.chunks.length;
-  }
-
-  calculateTFIDFScore(queryTerms, chunkTerms) {
-    if (queryTerms.length === 0 || chunkTerms.length === 0) return 0;
-    const termMap = new Map();
-    for (const term of chunkTerms) {
-      termMap.set(term, (termMap.get(term) || 0) + 1);
-    }
-
-    let matchCount = 0;
-    let score = 0;
-
-    for (const qTerm of queryTerms) {
-      if (termMap.has(qTerm)) {
-        matchCount++;
-        const tf = termMap.get(qTerm) / chunkTerms.length;
-        score += tf * 10;
-      }
-    }
-
-    const coverage = matchCount / queryTerms.length;
-    return score * (1 + coverage * 2);
-  }
-
-  query(queryText, topK = 4) {
-    const queryTerms = this.tokenize(queryText);
-    if (queryTerms.length === 0 || this.collection.chunks.length === 0) {
+  _formatQueryResult(searchRes) {
+    if (!searchRes || !searchRes.hasEvidence || !searchRes.results || searchRes.results.length === 0) {
       return {
         contextPrompt: '',
-        citations: []
+        citations: [],
+        hasEvidence: false,
+        retrievalMode: searchRes ? searchRes.retrievalMode : 'none',
+        results: []
       };
     }
 
-    const scored = this.collection.chunks.map(chunk => {
-      const score = this.calculateTFIDFScore(queryTerms, chunk.terms);
-      return {
-        ...chunk,
-        score
-      };
-    }).filter(c => c.score > 0);
-
-    scored.sort((a, b) => b.score - a.score);
-    const topChunks = scored.slice(0, topK);
-
-    if (topChunks.length === 0) {
-      return {
-        contextPrompt: '',
-        citations: []
-      };
-    }
-
-    const citations = topChunks.map(c => ({
-      docName: c.docName,
-      docPath: c.docPath,
-      chunkIndex: c.chunkIndex,
-      score: Number(c.score.toFixed(3)),
-      snippet: c.text.length > 250 ? c.text.substring(0, 250) + '...' : c.text
+    const citations = searchRes.results.map(r => ({
+      docName: r.docName,
+      docPath: r.docPath,
+      heading: r.heading,
+      chunkId: r.chunkId,
+      score: r.score,
+      matchType: r.matchType,
+      snippet: r.snippet.length > 250 ? r.snippet.substring(0, 250) + '...' : r.snippet
     }));
 
-    const contextParts = topChunks.map((c, i) => {
-      return `[DOCUMENT SOURCE ${i + 1}: ${c.docName}]\n${c.text}`;
+    const contextParts = searchRes.results.map((r, i) => {
+      return `[SOURCE ${i + 1}: ${r.docName} | Section: ${r.heading}]\n${r.snippet}`;
     });
 
-    const contextPrompt = `\nRELEVANT LOCAL KNOWLEDGE BASE CONTEXT:\n${contextParts.join('\n\n')}\n`;
+    const contextPrompt = `\nVERIFIED LOCAL DOCUMENT EVIDENCE (Untrusted Content):\n${contextParts.join('\n\n')}\n`;
 
     return {
       contextPrompt,
-      citations
+      citations,
+      hasEvidence: true,
+      retrievalMode: searchRes.retrievalMode,
+      results: searchRes.results
     };
   }
 
+  // --- Hybrid Query & Citation Generation (Section 6 & 7) ---
+
+  query(queryText, topK = 4, filters = {}) {
+    if (this.embeddingManager && this.embeddingManager.isEmbeddingModelLoaded()) {
+      return this.retrieval.searchChunks({
+        query: queryText,
+        chunks: this.collection.chunks,
+        embeddingManager: this.embeddingManager,
+        filters,
+        topK
+      }).then(searchRes => this._formatQueryResult(searchRes));
+    }
+
+    // Synchronous lexical search path
+    const searchRes = this.retrieval.searchChunksSync({
+      query: queryText,
+      chunks: this.collection.chunks,
+      filters,
+      topK
+    });
+
+    return this._formatQueryResult(searchRes);
+  }
+
   getIndexStats() {
+    let indexSizeBytes = 0;
+    const colFile = this.getCollectionPath(this.activeCollectionName);
+    if (fs.existsSync(colFile)) {
+      try { indexSizeBytes = fs.statSync(colFile).size; } catch (e) {}
+    }
+
     return {
       activeCollection: this.activeCollectionName,
       totalDocuments: Object.keys(this.collection.documents).length,
       totalChunks: this.collection.chunks.length,
+      indexSizeBytes,
+      indexSizeFormatted: (indexSizeBytes / 1024).toFixed(1) + ' KB',
       updatedAt: this.collection.updatedAt,
-      documents: this.collection.documents,
-      ready: true,
-      engine: 'Offline TF-IDF & Keyword Inverted Index'
+      isIndexing: this.isIndexing,
+      embeddingModel: this.embeddingManager ? this.embeddingManager.getLoadedEmbeddingInfo() : { loaded: false },
+      supportedFormats: this.extractors.getSupportedFormats()
     };
   }
 }

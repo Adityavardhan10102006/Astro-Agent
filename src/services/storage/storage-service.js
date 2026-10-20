@@ -51,7 +51,26 @@ class StorageService {
     this.ensureDirectories();
     try {
       const data = fs.readFileSync(this.paths.catalogFile, 'utf8');
-      return JSON.parse(data);
+      const catalog = JSON.parse(data);
+      const existingMap = new Map((catalog.models || []).map(m => [m.id, m]));
+      const updatedModels = APPROVED_MODELS.map(approved => {
+        const existing = existingMap.get(approved.id);
+        if (existing) {
+          return {
+            ...approved,
+            installed: existing.installed || false,
+            installedFiles: existing.installedFiles || [],
+            localPath: existing.localPath || null,
+            activeQuant: existing.activeQuant || null,
+            installedAt: existing.installedAt || null
+          };
+        }
+        return { ...approved, installed: false, installedFiles: [] };
+      });
+      const approvedIds = new Set(APPROVED_MODELS.map(m => m.id));
+      const customModels = (catalog.models || []).filter(m => !approvedIds.has(m.id));
+      catalog.models = [...updatedModels, ...customModels];
+      return catalog;
     } catch (err) {
       console.error('Error reading catalog:', err);
       return { models: APPROVED_MODELS };
@@ -114,11 +133,31 @@ class StorageService {
     this.ensureDirectories();
     const logDate = new Date().toISOString().slice(0, 10);
     const logFile = path.join(this.paths.logs, `astro-${logDate}.log`);
+    
+    // Mask secrets in logs
+    let cleanMessage = message;
+    if (typeof cleanMessage === 'string') {
+      cleanMessage = cleanMessage
+        .replace(/(sk-[a-zA-Z0-9_\-]{15,})/gi, '[REDACTED_API_KEY]')
+        .replace(/(hf_[a-zA-Z0-9_\-]{15,})/gi, '[REDACTED_HF_TOKEN]')
+        .replace(/(bearer\s+)[a-zA-Z0-9_\-\.]{15,}/gi, '$1[REDACTED_TOKEN]');
+    }
+
+    let cleanMeta = meta;
+    try {
+      cleanMeta = JSON.parse(
+        JSON.stringify(meta)
+          .replace(/(sk-[a-zA-Z0-9_\-]{15,})/gi, '[REDACTED_API_KEY]')
+          .replace(/(hf_[a-zA-Z0-9_\-]{15,})/gi, '[REDACTED_HF_TOKEN]')
+          .replace(/(bearer\s+)[a-zA-Z0-9_\-\.]{15,}/gi, '$1[REDACTED_TOKEN]')
+      );
+    } catch (e) {}
+
     const line = JSON.stringify({
       timestamp: new Date().toISOString(),
       level,
-      message,
-      meta
+      message: cleanMessage,
+      meta: cleanMeta
     }) + '\n';
     fs.appendFileSync(logFile, line, 'utf8');
   }

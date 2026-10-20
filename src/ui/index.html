@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ASTRO — Offline Desktop AI Assistant</title>
+  <link rel="icon" type="image/png" href="assets/icon.png">
   <link rel="stylesheet" href="theme/styles.css">
 </head>
 <body data-theme="dark">
@@ -11,6 +12,7 @@
   <header class="topbar">
     <div class="topbar-brand">
       <button class="btn-sidebar-toggle" id="btn-toggle-sidebar" title="Toggle Sidebar" aria-label="Toggle Sidebar">☰</button>
+      <img src="assets/icon.png" alt="ASTRO Logo" style="width: 22px; height: 22px; border-radius: 5px; vertical-align: middle; margin-right: 8px;">
       <span class="brand-title">ASTRO</span>
       <span class="status-badge" id="topbar-offline-badge">
         <span class="dot offline"></span>
@@ -183,36 +185,65 @@
               <div style="display: flex; align-items: center; gap: 10px;">
                 <span id="chat-active-conv-title" style="font-weight: 600; font-size: 13px;">New Conversation</span>
                 <span class="status-badge" id="chat-processing-mode">Local Offline</span>
+                <span class="status-badge" id="chat-active-model-pill" style="cursor: pointer; background: rgba(99, 102, 241, 0.15); color: var(--accent-primary);" title="Active Model. Click to switch or import.">🤖 Model: Loading...</span>
+                <span class="status-badge" id="chat-voice-badge" style="display: none; background: rgba(59, 130, 246, 0.15); color: var(--accent-primary);">Mic Idle</span>
               </div>
               <div style="display: flex; gap: 8px;">
+                <button class="btn btn-sm btn-danger" id="btn-chat-stop-speaking" style="display: none;" title="Interrupt voice response">⏹ Stop Speaking</button>
                 <button class="btn btn-sm" id="btn-chat-rename">Rename</button>
                 <button class="btn btn-sm btn-danger" id="btn-chat-delete">Delete</button>
+              </div>
+            </div>
+
+            <!-- Drop Zone Overlay for Drag-and-Drop Model Import -->
+            <div id="chat-drop-zone" class="chat-drop-overlay" style="display: none;">
+              <div class="chat-drop-content">
+                <div style="font-size: 38px; margin-bottom: 8px;">📥</div>
+                <div style="font-weight: 600; font-size: 15px; color: var(--text-primary);">Drop GGUF Model to Inspect & Import</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">ASTRO will inspect architecture, verify GGUF format, and evaluate memory requirements.</div>
               </div>
             </div>
 
             <div class="chat-messages-scroll" id="chat-messages-scroll">
               <div class="msg-row assistant">
                 <div class="msg-bubble">
-                  ASTRO is ready. Ask questions, explore documents, or request code assistance. All interactions remain completely private and on-device.
+                  ASTRO is ready. Ask questions, explore documents, or manage models. All model inference and data remain completely offline and private on your device.
                 </div>
               </div>
             </div>
 
             <!-- Compose Bar -->
             <div class="chat-compose-area">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <label style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
-                  <input type="checkbox" id="chat-rag-checkbox" checked> Local RAG Ingestion
-                </label>
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <label for="chat-mode-select" style="font-size: 11.5px; color: var(--text-muted); font-weight: 500;">Mode:</label>
+                  <select class="select-input" id="chat-mode-select" style="padding: 2px 8px; font-size: 12px; height: 26px;">
+                    <option value="local-files">📚 Local files (grounded)</option>
+                    <option value="general-assistant">💬 General assistant (no retrieval)</option>
+                    <option value="selected-sources">🎯 Selected sources</option>
+                  </select>
+                  <span id="chat-sources-chip" style="font-size: 11px; color: var(--accent-primary); display: none;">0 sources selected</span>
+                </div>
                 <div id="chat-metrics-bar" style="font-size: 11.5px; color: var(--text-muted);"></div>
                 <button class="btn btn-danger btn-sm" id="btn-chat-stop" style="display: none;">Stop</button>
               </div>
 
-              <div style="display: flex; gap: 8px;">
-                <textarea class="chat-compose-input" id="chat-input-text" placeholder="Type a message (Shift+Enter for newline)..."></textarea>
+              <!-- Transcript preview & edit bar (Phase 6) -->
+              <div id="chat-transcript-bar" class="transcript-preview-bar" style="display: none;">
+                <span style="font-size: 14px;">🎙️</span>
+                <input type="text" id="chat-transcript-input" style="flex: 1; background: transparent; border: 1px solid var(--border-subtle); color: var(--text-primary); font-size: 12px; padding: 4px 8px; border-radius: 4px;" placeholder="Transcript preview...">
+                <button class="btn btn-sm btn-primary" id="btn-transcript-accept">Send</button>
+                <button class="btn btn-sm" id="btn-transcript-cancel">Cancel</button>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: 6px;">
+                <button class="btn btn-sm" id="btn-chat-model-action" title="Manage, Switch, or Import Local Models" style="padding: 0 10px; font-size: 12.5px;">🤖 Models</button>
+                <button class="btn btn-sm" id="btn-chat-mic" title="Voice Input / Push-to-Talk" style="padding: 0 12px; font-size: 15px;">🎙️</button>
+                <textarea class="chat-compose-input" id="chat-input-text" placeholder="Type a message or model command (e.g. 'Import a model', 'Switch to Qwen3-8B', 'List models')..."></textarea>
                 <button class="btn btn-primary" id="btn-chat-send">Send</button>
               </div>
             </div>
+
           </div>
         </div>
       </section>
@@ -221,37 +252,42 @@
       <section class="screen" id="files-screen">
         <div class="screen-header">
           <div>
-            <h2 class="screen-title">File Intelligence</h2>
-            <p class="screen-desc">Scan, search, and inspect files within user-approved directories.</p>
+            <h2 class="screen-title">File Intelligence & Library</h2>
+            <p class="screen-desc">Manage indexed folders, inspect file metadata, and trigger incremental processing.</p>
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-files-pick-folder">Choose Folder</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm" id="btn-files-add-file">+ Add File</button>
+            <button class="btn btn-primary btn-sm" id="btn-files-pick-folder">+ Add Folder</button>
+            <button class="btn btn-sm btn-primary" id="btn-files-index-all">⚡ Index Library</button>
+          </div>
         </div>
 
         <div class="files-layout">
-          <!-- Folder Browser / Filters -->
+          <!-- Folder Browser / Filters / Roots -->
           <div class="panel">
-            <div class="card-title">Filter & Scope</div>
-            <div style="font-size: 11.5px; color: var(--text-muted); word-break: break-all;" id="files-current-dir">
-              Scope: c:\aditya\ASTRO
+            <div class="card-title">Library Roots</div>
+            <div id="files-library-roots" style="font-size: 11.5px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; margin-top: 4px; max-height: 120px; overflow-y: auto;">
+              <!-- Populated by app.js -->
             </div>
-            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;">
+            <div class="card-title" style="margin-top: 12px;">Filter & Scope</div>
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
               <select class="select-input" id="files-category-filter">
                 <option value="all">All File Types</option>
                 <option value="code">Code Files (.js, .py, .ts, etc.)</option>
-                <option value="docs">Documents (.md, .txt)</option>
-                <option value="data">Data Files (.json, .csv, .yaml)</option>
+                <option value="docs">Documents (.md, .txt, .pdf, .docx)</option>
+                <option value="data">Data Files (.json, .csv, .xlsx)</option>
               </select>
             </div>
             <div class="card-title" style="margin-top: 14px;">Exclusions</div>
             <div style="font-size: 11.5px; color: var(--text-muted);">
-              Excluded folders: <code id="files-exclusions-label">node_modules, .git</code>
+              Excluded folders: <code id="files-exclusions-label">node_modules, .git, dist, build</code>
             </div>
           </div>
 
           <!-- Files List / Search Results -->
           <div class="panel">
             <div style="display: flex; gap: 8px;">
-              <input type="text" class="input-text" id="files-search-query" placeholder="Search filename or content..." style="flex: 1;">
+              <input type="text" class="input-text" id="files-search-query" placeholder="Search filename, path, or text..." style="flex: 1;">
               <button class="btn btn-sm btn-primary" id="btn-files-search">Search</button>
             </div>
             <div id="files-results-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
@@ -263,11 +299,12 @@
           <div class="panel" id="files-details-panel">
             <div class="card-title">File Details</div>
             <div id="file-details-content" style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
-              Select a file to inspect details, line count, and open in desktop viewer.
+              Select a file to inspect details, indexing status, and open in desktop viewer.
             </div>
-            <div style="margin-top: auto; display: flex; gap: 8px;">
+            <div style="margin-top: auto; display: flex; gap: 8px; flex-wrap: wrap;">
               <button class="btn btn-sm btn-primary" id="btn-files-open-os" style="display: none;">Open in OS</button>
-              <button class="btn btn-sm" id="btn-files-index-rag" style="display: none;">Add to RAG</button>
+              <button class="btn btn-sm" id="btn-files-index-rag" style="display: none;">Re-index</button>
+              <button class="btn btn-sm btn-danger" id="btn-files-remove-library" style="display: none;">Remove</button>
             </div>
           </div>
         </div>
@@ -278,24 +315,40 @@
         <div class="screen-header">
           <div>
             <h2 class="screen-title">Knowledge Collections & Local RAG</h2>
-            <p class="screen-desc">Manage offline document indexes and inspect chunk citations.</p>
+            <p class="screen-desc">Hybrid BM25 and semantic vector retrieval with verified source citations.</p>
           </div>
           <div style="display: flex; gap: 8px;">
             <button class="btn btn-sm" id="btn-rag-create-coll">+ New Collection</button>
-            <button class="btn btn-primary btn-sm" id="btn-rag-rebuild">Rebuild Index</button>
+            <button class="btn btn-danger btn-sm" id="btn-rag-rebuild">Rebuild Index</button>
           </div>
+        </div>
+
+        <!-- Progress and Embedding Status Row -->
+        <div id="rag-indexing-progress-card" class="card" style="display: none; margin-bottom: 12px; border-left: 4px solid var(--accent-primary);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span id="rag-progress-label" style="font-size: 12px; font-weight: 600;">Indexing Files...</span>
+            <button class="btn btn-sm btn-danger" id="btn-rag-cancel-index">Cancel</button>
+          </div>
+          <div style="background: var(--bg-secondary); border-radius: 4px; height: 8px; overflow: hidden; margin-top: 8px;">
+            <div id="rag-progress-bar" style="background: var(--accent-primary); width: 0%; height: 100%; transition: width 0.3s;"></div>
+          </div>
+          <div id="rag-progress-detail" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">0 / 0 files processed</div>
         </div>
 
         <div class="rag-cols">
           <!-- Collections sidebar -->
           <div class="panel">
-            <div class="card-title">Collections</div>
-            <div id="rag-collections-list" style="display: flex; flex-direction: column; gap: 4px; overflow-y: auto; flex: 1;">
+            <div class="card-title">Collections & Embedding</div>
+            <div id="rag-collections-list" style="display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 180px;">
               <!-- Populated by app.js -->
             </div>
             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-subtle); font-size: 11.5px; color: var(--text-muted);">
-              Status: <span style="color: var(--accent-success);">● Engine Ready</span><br>
-              Type: Local TF-IDF & Inverted Index
+              <strong>Local Embedding Engine:</strong><br>
+              <span id="rag-embedding-status-label">Checking embedding model...</span><br>
+              <div id="rag-embedding-controls" style="margin-top: 6px;"></div>
+            </div>
+            <div style="margin-top: 8px; font-size: 11.5px; color: var(--text-muted);">
+              Index Storage: <span id="rag-storage-size-label">0 KB</span>
             </div>
           </div>
 
@@ -342,19 +395,22 @@
             <h2 class="screen-title">Research Workspace</h2>
             <p class="screen-desc">Local-first document research with optional external web queries.</p>
           </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="status-badge" id="research-conn-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-success);">● Offline / Private</span>
+          </div>
         </div>
 
         <div style="max-width: 860px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 14px;">
           <div class="card">
             <div style="display: flex; gap: 10px;">
-              <input type="text" class="input-text" id="research-query-input" placeholder="Enter research topic..." style="flex: 1;">
+              <input type="text" class="input-text" id="research-query-input" placeholder="Enter technical question or research topic..." style="flex: 1;">
               <button class="btn btn-primary" id="btn-research-start">Search</button>
               <button class="btn btn-danger btn-sm" id="btn-research-cancel" style="display: none;">Cancel</button>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
               <label style="font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
                 <input type="checkbox" id="research-online-toggle">
-                <span>Enable Online Research (Requires External Service Permission)</span>
+                <span>Enable Online Research (Requires explicit user permission per Rule 2 & 4)</span>
               </label>
               <span id="research-status-label" style="font-size: 11.5px; color: var(--text-muted);">Idle</span>
             </div>
@@ -382,39 +438,64 @@
       <section class="screen" id="studio-screen">
         <div class="screen-header">
           <div>
-            <h2 class="screen-title">Coding Studio & Safe Actions</h2>
-            <p class="screen-desc">Workspace file browser, proposed diff review, and terminal execution with permission controls.</p>
+            <h2 class="screen-title">Coding Studio & Project Intelligence</h2>
+            <p class="screen-desc">Workspace file browser, code intelligence, diff review, safe editing, and test execution.</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="studio-project-name" class="status-badge" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">No Active Project</span>
+            <button class="btn btn-sm btn-primary" id="btn-studio-open-project">Open Project 📁</button>
+            <button class="btn btn-sm" id="btn-studio-close-project" style="display: none;">Close Project</button>
           </div>
         </div>
 
+        <!-- Project Badges Summary -->
+        <div id="studio-project-badges" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-size: 11.5px;"></div>
+
         <div class="studio-grid">
-          <!-- File tree -->
+          <!-- File tree & search -->
           <div class="panel">
-            <div class="card-title">Project Tree</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <div class="card-title" style="margin-bottom: 0;">Project Files</div>
+              <button class="btn btn-sm" id="btn-studio-refresh-tree" title="Refresh files" style="padding: 2px 6px; font-size: 10px;">🔄</button>
+            </div>
+            <input type="text" class="input-text" id="studio-tree-search" placeholder="Search files or code..." style="font-size: 11px; padding: 4px 8px; margin-bottom: 6px;">
             <div id="studio-tree-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
-              <!-- Populated by app.js -->
+              <div style="color: var(--text-muted); font-size: 11.5px; padding: 10px 0;">Open a project folder to inspect files.</div>
             </div>
           </div>
 
           <!-- Code & Diff Viewer -->
           <div class="panel">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span id="studio-active-file-label" style="font-weight: 600; font-size: 12.5px;">No File Open</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
+              <span id="studio-active-file-label" style="font-weight: 600; font-size: 12px; word-break: break-all;">No File Open</span>
               <div style="display: flex; gap: 6px;">
                 <button class="btn btn-sm btn-danger" id="btn-studio-reject-diff" style="display: none;">Reject Diff</button>
                 <button class="btn btn-sm btn-primary" id="btn-studio-apply-diff" style="display: none;">Approve & Apply (Rule 14)</button>
+                <button class="btn btn-sm" id="btn-studio-revert-diff" style="display: none;" title="Restore file from previous backup">↩ Revert Changes</button>
               </div>
             </div>
-            <div class="code-box" id="studio-editor-box">// Select a file from the tree to view its contents</div>
+            <div id="studio-credential-warning" class="notice-box warning" style="display: none; margin: 6px 0; padding: 6px 10px; font-size: 11.5px;">
+              ⚠️ <strong>Sensitive Credentials File:</strong> This file contains environment variables or secret keys. Review carefully before editing.
+            </div>
+            <div class="code-box" id="studio-editor-box" style="flex: 1; min-height: 220px;">// Select a file from the project tree to view its contents</div>
           </div>
 
-          <!-- Terminal Panel -->
+          <!-- Terminal & Execution Panel -->
           <div class="panel">
-            <div class="card-title">Terminal Output</div>
-            <div class="terminal-container" id="studio-terminal-output">ASTRO Terminal initialized. Commands require explicit approval (Rule 9).</div>
-            <div style="display: flex; gap: 6px; margin-top: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="card-title" style="margin-bottom: 0;">Terminal & Checks</div>
+              <span id="studio-cmd-status-badge" class="status-badge" style="display: none;">Ready</span>
+            </div>
+            <div class="terminal-container" id="studio-terminal-output" style="flex: 1; min-height: 200px;">ASTRO Terminal initialized. Commands require explicit approval (Rule 9).</div>
+            <div style="display: flex; gap: 6px; margin: 6px 0;">
+              <button class="btn btn-sm" id="btn-quick-test" style="font-size: 10px; padding: 2px 6px;">▶ npm test</button>
+              <button class="btn btn-sm" id="btn-quick-lint" style="font-size: 10px; padding: 2px 6px;">▶ npm run lint</button>
+              <button class="btn btn-sm" id="btn-quick-git" style="font-size: 10px; padding: 2px 6px;">▶ git status</button>
+            </div>
+            <div style="display: flex; gap: 6px;">
               <input type="text" class="input-text" id="studio-cmd-input" placeholder="npm test..." style="flex: 1; font-family: var(--font-mono); font-size: 11.5px;">
               <button class="btn btn-sm btn-primary" id="btn-studio-run-cmd">Run</button>
+              <button class="btn btn-sm btn-danger" id="btn-studio-cancel-cmd" style="display: none;">Cancel</button>
             </div>
           </div>
         </div>
@@ -424,20 +505,71 @@
       <section class="screen" id="models-screen">
         <div class="screen-header">
           <div>
-            <h2 class="screen-title">Local Model Manager</h2>
-            <p class="screen-desc">Discover, download, verify, and load local GGUF models directly on device.</p>
+            <h2 class="screen-title">Local Model Manager & Hugging Face Engine</h2>
+            <p class="screen-desc">Discover, download, verify, load, switch, and delete local GGUF models with offline persistence.</p>
           </div>
-          <button class="btn btn-primary btn-sm" id="btn-models-discover">Discover on Hugging Face</button>
-        </div>
-
-        <div class="card" id="models-hw-banner">
-          <div class="card-title">Hardware Profile & Compatibility</div>
-          <div id="models-hw-details" style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-top: 4px;">
-            Detecting hardware profile...
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm" id="btn-models-import-local">📥 Import Local GGUF</button>
+            <button class="btn btn-sm" id="btn-models-change-storage">Change Storage Location</button>
+            <button class="btn btn-primary btn-sm" id="btn-models-discover">Refresh Qwen Repository</button>
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px;" id="models-cards-grid">
+        <!-- Auto-Detected Workspace Models Banner -->
+        <div id="models-detected-banner" class="card" style="margin-bottom: 14px; display: none; border-left: 4px solid var(--accent-success); background: rgba(34, 197, 94, 0.06);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-weight: 600; font-size: 13px; color: var(--accent-success);" id="detected-banner-title">✨ Detected Local GGUF Model in Workspace</div>
+              <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;" id="detected-banner-desc">Ready to integrate and use offline without downloading.</div>
+            </div>
+            <div id="detected-banner-actions" style="display: flex; gap: 8px;">
+              <!-- Populated by app.js -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Hardware & Storage Info -->
+        <div class="panel-row">
+          <div class="card" style="flex: 2; margin-bottom: 0;">
+            <div class="card-title">Hardware Profile & Compatibility</div>
+            <div id="models-hw-details" style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-top: 4px;">
+              Detecting hardware profile...
+            </div>
+          </div>
+          <div class="card" style="flex: 1; margin-bottom: 0;">
+            <div class="card-title">Managed Storage Location</div>
+            <div id="models-storage-path" style="font-size: 11.5px; color: var(--text-muted); word-break: break-all; margin-top: 4px;">
+              Loading storage location...
+            </div>
+            <div id="models-storage-free" style="font-size: 12px; font-weight: 600; color: var(--text-primary); margin-top: 6px;">
+              Disk Space: Detecting...
+            </div>
+          </div>
+        </div>
+
+        <!-- Add Custom Model Repository Card -->
+        <div class="card" style="margin-top: 14px;">
+          <div class="card-title">Add Custom Hugging Face Repository</div>
+          <div style="display: flex; gap: 10px; margin-top: 6px;">
+            <input type="text" class="input-text" id="models-custom-repo-input" placeholder="e.g. Qwen/Qwen2.5-Coder-7B-Instruct-GGUF" style="flex: 1;">
+            <button class="btn btn-sm btn-primary" id="btn-models-add-repo">Discover & Add to Catalog</button>
+          </div>
+          <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">
+            Format must be <code>author/model-name</code>. Only compatible GGUF variants will be downloaded upon explicit user selection.
+          </div>
+        </div>
+
+        <!-- Download Queue Panel -->
+        <div class="card" id="models-queue-panel" style="margin-top: 14px; display: none;">
+          <div class="card-title">Active Download Queue</div>
+          <div id="models-queue-list" style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+            <!-- Populated by app.js -->
+          </div>
+        </div>
+
+        <!-- Discovered & Catalog Models Grid -->
+        <div class="card-title" style="margin-top: 16px; margin-bottom: 10px;">Available & Installed Local Models</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px;" id="models-cards-grid">
           <!-- Populated by app.js -->
         </div>
       </section>
@@ -466,20 +598,67 @@
           </div>
 
           <div class="card">
-            <div class="card-title">Voice Preferences</div>
+            <div class="card-title">Speech Synthesis (TTS) & Voices</div>
             <div class="setting-row">
               <div>
                 <div class="setting-title">Spoken Responses (TTS)</div>
-                <div class="setting-subtitle">Read assistant answers aloud through system audio</div>
+                <div class="setting-subtitle">Read assistant answers aloud through offline system audio</div>
               </div>
               <input type="checkbox" id="voice-tts-pref">
             </div>
             <div class="setting-row">
               <div>
-                <div class="setting-title">Microphone Permissions</div>
-                <div class="setting-subtitle">Desktop audio capture state</div>
+                <div class="setting-title">Offline System Voice</div>
+                <div class="setting-subtitle">Select native OS voice engine</div>
               </div>
-              <span id="voice-perm-label" style="font-size: 12px; color: var(--accent-success);">Granted (Local)</span>
+              <select class="select-input" id="voice-select-engine" style="min-width: 180px; font-size: 12px; height: 28px;">
+                <option value="default">Default OS Voice</option>
+              </select>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Speech Rate</div>
+                <div class="setting-subtitle">Control speed of spoken answers</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <input type="range" id="voice-rate-slider" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 120px;">
+                <span id="voice-rate-val" style="font-size: 12px; font-family: monospace; min-width: 32px;">1.0x</span>
+                <button class="btn btn-sm btn-primary" id="btn-voice-test-tts">Test Voice</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Microphone & Wake Word</div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Microphone Permissions & Test</div>
+                <div class="setting-subtitle">Test live audio input meter</div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span id="voice-perm-label" style="font-size: 12px; color: var(--accent-success);">Granted (Local)</span>
+                <button class="btn btn-sm" id="btn-voice-test-mic">Test Mic</button>
+              </div>
+            </div>
+            <div class="audio-level-container">
+              <div class="audio-level-fill" id="voice-audio-level"></div>
+            </div>
+            <div class="setting-row" style="margin-top: 8px;">
+              <div>
+                <div class="setting-title">Wake-Word Detection ("Hey ASTRO")</div>
+                <div class="setting-subtitle">Runs 100% locally on laptop. Disabled by default for privacy.</div>
+              </div>
+              <input type="checkbox" id="voice-wake-pref">
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Trusted Desktop Applications Allowlist</div>
+            <p style="font-size: 11.5px; color: var(--text-muted); margin-bottom: 8px;">
+              ASTRO can only launch applications explicitly configured in this trusted allowlist.
+            </p>
+            <div id="voice-allowed-apps-list" style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+              <!-- Populated by app.js -->
             </div>
           </div>
         </div>
@@ -492,7 +671,10 @@
             <h2 class="screen-title">Activity & Background Tasks</h2>
             <p class="screen-desc">Real-time status of downloads, model loading, indexing, and command execution.</p>
           </div>
-          <button class="btn btn-sm" id="btn-activity-clear">Clear Completed</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm" id="btn-activity-clear">Clear Completed</button>
+            <button class="btn btn-sm btn-danger" id="btn-activity-clear-all">Clear All History</button>
+          </div>
         </div>
 
         <div class="activity-list" id="activity-tasks-container">
@@ -646,6 +828,76 @@ Loading diagnostics...
     </div>
   </footer>
 
+  <!-- Modal: Inspect and Import Local Model (BYOM) -->
+  <div id="modal-model-inspect" class="astro-modal-backdrop" style="display: none;">
+    <div class="astro-modal-box">
+      <div class="astro-modal-title">📥 Inspect & Import Local Model</div>
+      <div class="astro-modal-body">
+        <div id="inspect-loading" style="text-align: center; padding: 20px; color: var(--text-muted);">
+          Inspecting GGUF header, architecture, and memory requirements...
+        </div>
+        <div id="inspect-details" style="display: none;">
+          <div class="model-inspect-meta-grid">
+            <div><strong>File:</strong> <span id="inspect-filename">...</span></div>
+            <div><strong>Format:</strong> <span id="inspect-format">GGUF</span></div>
+            <div><strong>Architecture:</strong> <span id="inspect-architecture">...</span></div>
+            <div><strong>Quantization:</strong> <span id="inspect-quant">...</span></div>
+            <div><strong>File Size:</strong> <span id="inspect-size">...</span></div>
+            <div><strong>Est. RAM Needed:</strong> <span id="inspect-ram">...</span></div>
+          </div>
+          <div id="inspect-memory-warning" class="notice-box warning" style="display: none; margin-top: 10px;"></div>
+          <div id="inspect-duplicate-warning" class="notice-box info" style="display: none; margin-top: 10px;"></div>
+          <div style="margin-top: 12px;">
+            <label style="font-weight: 600; font-size: 11.5px; color: var(--text-primary); display: block; margin-bottom: 4px;">Display Name:</label>
+            <input type="text" class="input-text" id="inspect-display-name" style="width: 100%;">
+          </div>
+          <div style="margin-top: 12px; font-size: 11.5px; color: var(--text-secondary);">
+            <div style="font-weight: 600; margin-bottom: 6px;">Registration Storage Mode:</div>
+            <label style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 6px; cursor: pointer;">
+              <input type="radio" name="inspect-storage-mode" id="inspect-mode-inplace" value="inplace" checked>
+              <div>
+                <strong>Register In-Place (Zero-Copy, Recommended)</strong>
+                <div style="color: var(--text-muted); font-size: 11px;">Uses the file directly at its current location without taking up extra disk space. Moving or deleting the source file will make it unavailable.</div>
+              </div>
+            </label>
+            <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
+              <input type="radio" name="inspect-storage-mode" id="inspect-mode-copy" value="copy">
+              <div>
+                <strong>Copy to Managed Storage</strong>
+                <div style="color: var(--text-muted); font-size: 11px;">Duplicates the file into ASTRO's managed models directory. Safe from accidental external deletion.</div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="astro-modal-footer">
+        <button class="btn btn-sm" id="btn-inspect-cancel">Cancel</button>
+        <button class="btn btn-sm btn-primary" id="btn-inspect-confirm" disabled>Confirm & Register</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Model Switcher / Action Menu -->
+  <div id="modal-model-switcher" class="astro-modal-backdrop" style="display: none;">
+    <div class="astro-modal-box">
+      <div class="astro-modal-title">🤖 Local Model Library & Switcher</div>
+      <div class="astro-modal-body">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <button class="btn btn-sm btn-primary" id="btn-modal-import-trigger">📥 Import Local GGUF</button>
+          <button class="btn btn-sm" id="btn-modal-open-mgr">Open Full Model Manager</button>
+        </div>
+        <div class="card-title" style="margin-bottom: 6px;">Installed Models</div>
+        <div id="modal-models-list" style="max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+          <!-- Populated by app.js -->
+        </div>
+      </div>
+      <div class="astro-modal-footer">
+        <button class="btn btn-sm" id="btn-switcher-close">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
+

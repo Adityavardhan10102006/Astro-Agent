@@ -30,8 +30,8 @@ class SecurityService {
     // Mask API keys, tokens, Bearer headers, passwords
     return text
       .replace(/(bearer\s+)[a-zA-Z0-9_\-\.]{15,}/gi, '$1[REDACTED_TOKEN]')
-      .replace(/(hf_[a-zA-Z0-9]{20,})/gi, '[REDACTED_HF_TOKEN]')
-      .replace(/(sk-[a-zA-Z0-9]{20,})/gi, '[REDACTED_API_KEY]')
+      .replace(/(hf_[a-zA-Z0-9_\-]{20,})/gi, '[REDACTED_HF_TOKEN]')
+      .replace(/(sk-[a-zA-Z0-9_\-]{20,})/gi, '[REDACTED_API_KEY]')
       .replace(/(password\s*[:=]\s*)[^\s;]+/gi, '$1[REDACTED_PASSWORD]');
   }
 }

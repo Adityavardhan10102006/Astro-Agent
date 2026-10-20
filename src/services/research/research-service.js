@@ -109,7 +109,8 @@ class ResearchService extends EventEmitter {
               title,
               snippet: descriptions[i] || 'No summary available.',
               url: urls[i] || '',
-              sourceDomain: 'wikipedia.org'
+              sourceDomain: 'wikipedia.org',
+              retrievedAt: new Date().toISOString()
             })).filter(item => item.title && item.url);
 
             resolve(formatted);
@@ -129,6 +130,24 @@ class ResearchService extends EventEmitter {
         }
       });
     });
+  }
+
+  saveFindingToLibrary(finding, collectionName = 'default') {
+    if (!this.rag) {
+      throw new Error('RAG service unavailable for saving research findings.');
+    }
+    const title = finding.title || 'Web Research Finding';
+    const content = `# ${title}\nSource: ${finding.url || 'Web Search'}\nDomain: ${finding.sourceDomain || 'Internet'}\nDate: ${finding.retrievedAt || new Date().toISOString()}\n\n${finding.snippet || finding.content || ''}`;
+    const safeTitle = title.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
+    const virtualDocPath = `research://${finding.sourceDomain || 'web'}/${safeTitle}.md`;
+
+    this.rag.addDocument(virtualDocPath, content);
+    return {
+      saved: true,
+      virtualDocPath,
+      title,
+      collection: collectionName
+    };
   }
 }
 
