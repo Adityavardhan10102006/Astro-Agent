@@ -2,6 +2,31 @@
 
 All notable changes to the ASTRO project will be documented in this file.
 
+> **Note on Versioning:** Application distribution packages (`ASTRO-Setup-0.1.0.exe`, `ASTRO-0.1.0-portable.exe`) use Semantic Version `0.1.0` representing the initial standalone release baseline. Section headers below track development phase milestones (e.g., Phase 15 -> 0.15.0, Phase 16 -> 0.16.0).
+
+## [0.1.0] (Milestone 0.16.0) - Phase 16: Release Readiness and Distribution Validation
+### Verified & Validated
+- **Authoritative Version Audit**: Resolved versioning structure (`0.1.0` application package vs phase milestones) across `package.json`, release artifacts, UI diagnostics, and documentation.
+- **Windows Packaging Integrity**: Validated NSIS installer (`ASTRO-Setup-0.1.0.exe`, 368.9 MB) and standalone portable executable (`ASTRO-0.1.0-portable.exe`, 368.5 MB) with verified native llama DLL unpacking.
+- **User-Data Isolation & Retention**: Verified decoupled data directory (`%USERPROFILE%\.astro_data`) and verified NSIS `deleteAppDataOnUninstall: false` ensuring upgrades and uninstalls preserve user models, conversations, and RAG indexes.
+- **Standalone Launch Verification**: Tested independent execution of `release/win-unpacked/ASTRO.exe` proving zero reliance on node/development environment at runtime.
+- **Offline Network Isolation Audit**: Confirmed zero external network calls during launch, model discovery, chat inference, RAG retrieval, and settings management; verified CSP enforcement.
+- **Model Distribution Policy**: Verified external distribution policy for `Qwen3-8B-Q4_K_M.gguf` (5.02 GB) and verified multi-directory auto-discovery and in-place zero-copy registration.
+- **Windows Authenticode & Trust Assessment**: Assessed `NotSigned` binary status and documented SmartScreen bypass and code-signing roadmap for public release.
+- **Release Regression Suite**: 100% pass rate across all 148 automated tests in 17 test suites with zero regressions.
+
+## [0.15.0] - Phase 15: Complete UI Overhaul and Dark Professional Design System
+### Added
+- **Dark Professional Design System (`src/ui/theme/styles.css`)**: Implemented calm charcoal palette, subtle dividing borders, accessible text contrast, custom scrollbars, and standardized component hierarchies.
+- **Grouped Sidebar Navigation (`src/ui/index.html`)**: Logically organized the 10 existing workspaces into `Workspace`, `Knowledge & Code`, and `System` groups with active vertical highlight bars.
+- **Topbar Screen Indicator & Fast Switching**: Dynamically displays active workspace title and allows 1-click model switching from the header.
+- **First-Run Onboarding Banner**: Clear guidance and 1-click local GGUF import trigger when no model is active.
+- **Fenced Code Blocks & Copy Action**: Styled code blocks with language indicators and 1-click "Copy Code" action buttons.
+- **Toast Notification Feedback**: Non-blocking toast notifications for clipboard actions, settings persistence, and data operations.
+- **Prompt Suggestion Chips**: Interactive starter chips in empty chats for instant testing of models, quantization, and local RAG.
+- **Keyboard Accessibility**: Modal `Escape` key closing, chat submission on `Enter` (with `Shift+Enter` for newline), and `:focus-visible` outlines.
+- **Content-Security-Policy (CSP)**: Added strict meta CSP tag, eliminating Electron runtime security warnings.
+
 ## [0.13.0] - Phase 13: Bring Your Own Model (BYOM) and Chat-Based Model Management
 ### Added
 - **Chat-Based Model Management**: Initiate model discovery, local file import, model listing, and switching directly from the chat interface using natural language (e.g., "Import a model from my computer", "Show my installed models", "Switch to my newly imported model", "Switch back to Qwen3-8B", "Find Qwen3-8B").

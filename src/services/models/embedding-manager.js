@@ -52,6 +52,10 @@ class EmbeddingManager extends EventEmitter {
     return this.loadedModel !== null;
   }
 
+  getStatus() {
+    return this.getLoadedEmbeddingInfo();
+  }
+
   getLoadedEmbeddingInfo() {
     if (!this.loadedModel) {
       return {

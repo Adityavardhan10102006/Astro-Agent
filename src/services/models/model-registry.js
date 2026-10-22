@@ -172,7 +172,6 @@ class ModelRegistry {
       path.resolve(process.cwd()),
       path.resolve(path.dirname(process.execPath)),
       path.resolve(require('os').homedir()),
-      'c:\\aditya\\ASTRO',
       ...(settings?.security?.allowedWorkspaceRoots || []).map(r => path.resolve(r))
     ];
     const isSafe = allowedRoots.some(root => normalizedFilePath.startsWith(root));

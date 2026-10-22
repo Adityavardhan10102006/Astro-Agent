@@ -112,7 +112,7 @@ class HuggingFaceDiscovery {
       const base = this.baseUrl || this.apiBase;
       const url = `${base}/${repoId}`;
       const headers = {
-        'User-Agent': 'ASTRO-Desktop-Assistant/0.2.0'
+        'User-Agent': 'ASTRO-Desktop-Assistant/0.1.0'
       };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -156,7 +156,7 @@ class HuggingFaceDiscovery {
       const base = this.baseUrl || this.apiBase;
       const url = `${base}/${repoId}/tree/main`;
       const headers = {
-        'User-Agent': 'ASTRO-Desktop-Assistant/0.2.0'
+        'User-Agent': 'ASTRO-Desktop-Assistant/0.1.0'
       };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;

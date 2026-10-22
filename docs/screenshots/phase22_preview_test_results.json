@@ -1,0 +1,103 @@
+[
+  {
+    "id": 1,
+    "title": "Installation & Standalone Launch Artifact",
+    "status": "passed",
+    "details": {
+      "exePath": "c:\\aditya\\ASTRO\\release\\win-unpacked\\ASTRO.exe",
+      "exeSizeBytes": 188917760,
+      "architecture": "x64"
+    }
+  },
+  {
+    "id": 2,
+    "title": "First-Run Guidance on Unconfigured Model",
+    "status": "passed",
+    "details": {
+      "isLoaded": false,
+      "gracefulError": "Actionable guidance returned preventing unconfigured inference"
+    }
+  },
+  {
+    "id": 3,
+    "title": "Registration & Loading of Compatible GGUF Model",
+    "status": "passed",
+    "details": {
+      "modelId": "qwen3-8b",
+      "magic": "GGUF",
+      "tensors": 399,
+      "loaded": true
+    }
+  },
+  {
+    "id": 4,
+    "title": "Multi-Turn Conversation & Generation Cancellation",
+    "status": "passed",
+    "details": {
+      "turns": 2,
+      "messagesInHistory": 4,
+      "cancellationVerified": true,
+      "tokensBeforeCancel": 2
+    }
+  },
+  {
+    "id": 5,
+    "title": "Model Switching, Failed Load & Safe Recovery",
+    "status": "passed",
+    "details": {
+      "corruptLoadBlocked": true,
+      "singleModelConfinement": true,
+      "recoveryReloadSuccessful": true,
+      "recoveredModel": "qwen3-8b"
+    }
+  },
+  {
+    "id": 6,
+    "title": "Local File RAG Workflow & Source Citations",
+    "status": "passed",
+    "details": {
+      "indexedDoc": "astro_spec.txt",
+      "citationsReturned": 1,
+      "topCitation": "astro_spec.txt"
+    }
+  },
+  {
+    "id": 7,
+    "title": "Coding Studio Preview, Backup & Rollback",
+    "status": "passed",
+    "details": {
+      "backupFileCreated": "script.js.astro_bak_1792574630518",
+      "rollbackVerified": true
+    }
+  },
+  {
+    "id": 8,
+    "title": "Activity Logs & Automated Secret Redaction",
+    "status": "passed",
+    "details": {
+      "sensitiveTokenMasked": true,
+      "logRedactionVerified": true
+    }
+  },
+  {
+    "id": 9,
+    "title": "Offline Behavior & Zero Remote Telemetry",
+    "status": "passed",
+    "details": {
+      "offlineOnly": true,
+      "telemetryEnabled": false,
+      "autoUpload": false,
+      "cspEnforced": "default-src 'self'"
+    }
+  },
+  {
+    "id": 10,
+    "title": "Data Retention on Uninstall",
+    "status": "passed",
+    "details": {
+      "nsisDeleteAppDataOnUninstall": false,
+      "userProfileDataDir": "C:\\Users\\adity\\.astro_data",
+      "guarantee": "User database, conversations, and RAG indexes preserved across uninstalls"
+    }
+  }
+]

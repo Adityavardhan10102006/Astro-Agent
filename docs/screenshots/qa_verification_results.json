@@ -1,0 +1,118 @@
+{
+  "screensCaptured": [
+    {
+      "name": "01_home_screen.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\01_home_screen.png",
+      "sizeBytes": 230251
+    },
+    {
+      "name": "02_chat_screen.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\02_chat_screen.png",
+      "sizeBytes": 128477
+    },
+    {
+      "name": "12_chat_with_code_and_think.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\12_chat_with_code_and_think.png",
+      "sizeBytes": 156034
+    },
+    {
+      "name": "03_files_screen.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\03_files_screen.png",
+      "sizeBytes": 120076
+    },
+    {
+      "name": "04_rag_screen.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\04_rag_screen.png",
+      "sizeBytes": 149888
+    },
+    {
+      "name": "05_research_screen.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\05_research_screen.png",
+      "sizeBytes": 117971
+    },
+    {
+      "name": "06_studio_screen.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\06_studio_screen.png",
+      "sizeBytes": 166830
+    },
+    {
+      "name": "07_models_screen.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\07_models_screen.png",
+      "sizeBytes": 264442
+    },
+    {
+      "name": "08_voice_screen.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\08_voice_screen.png",
+      "sizeBytes": 146296
+    },
+    {
+      "name": "09_activity_screen.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\09_activity_screen.png",
+      "sizeBytes": 85135
+    },
+    {
+      "name": "10_settings_screen.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\10_settings_screen.png",
+      "sizeBytes": 125580
+    },
+    {
+      "name": "11_modal_model_switcher.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\11_modal_model_switcher.png",
+      "sizeBytes": 131008
+    },
+    {
+      "name": "13_responsive_1024x700.png",
+      "filePath": "c:\\aditya\\ASTRO\\docs\\screenshots\\13_responsive_1024x700.png",
+      "sizeBytes": 123366
+    }
+  ],
+  "interactionsTested": [
+    {
+      "name": "prompt_chip_click",
+      "clicked": true,
+      "inputValue": "What models are currently registered?"
+    },
+    {
+      "name": "code_and_think_block_render",
+      "hasThinkBlock": true,
+      "hasCodeBlock": true,
+      "toastRendered": true,
+      "toastText": "✓Code copied to clipboard"
+    },
+    {
+      "name": "modal_open_and_esc_dismiss",
+      "opened": true,
+      "closedOnEsc": true
+    }
+  ],
+  "layoutChecks": [
+    {
+      "screen": "home",
+      "activeScreenId": "home-screen",
+      "topbarTitle": "🏠 Home",
+      "overflow": false,
+      "modelBadge": "No Model Loaded",
+      "hwText": "AMD Ryzen 5 · 3.7GB Free"
+    },
+    {
+      "screen": "chat",
+      "activeScreenId": "chat-screen",
+      "topbarTitle": "💬 Chat",
+      "hasSidebar": true,
+      "hasCompose": true,
+      "promptChipsCount": 3
+    },
+    {
+      "screen": "models",
+      "bannerVisible": true,
+      "modelsCardsCount": 3
+    },
+    {
+      "screen": "resize_1024x700",
+      "overflow": false,
+      "width": 1010,
+      "height": 638
+    }
+  ],
+  "errorsFound": []
+}

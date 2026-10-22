@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ASTRO — Offline Desktop AI Assistant</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+  <title>ASTRO — Offline Desktop AI Assistant &amp; Coding Studio</title>
   <link rel="icon" type="image/png" href="assets/icon.png">
   <link rel="stylesheet" href="theme/styles.css">
 </head>
@@ -11,68 +12,74 @@
   <!-- Top Application Header -->
   <header class="topbar">
     <div class="topbar-brand">
-      <button class="btn-sidebar-toggle" id="btn-toggle-sidebar" title="Toggle Sidebar" aria-label="Toggle Sidebar">☰</button>
-      <img src="assets/icon.png" alt="ASTRO Logo" style="width: 22px; height: 22px; border-radius: 5px; vertical-align: middle; margin-right: 8px;">
+      <button class="btn-sidebar-toggle" id="btn-toggle-sidebar" title="Toggle Navigation Sidebar" aria-label="Toggle Sidebar">☰</button>
+      <img src="assets/icon.png" alt="ASTRO Logo" style="width: 22px; height: 22px; border-radius: 5px; vertical-align: middle; margin-right: 4px;">
       <span class="brand-title">ASTRO</span>
-      <span class="status-badge" id="topbar-offline-badge">
-        <span class="dot offline"></span>
-        <span id="topbar-offline-text">OFFLINE</span>
-      </span>
+      <span class="topbar-screen-pill" id="topbar-screen-title">🏠 Home</span>
     </div>
 
     <div class="topbar-indicators">
-      <div class="status-badge" id="topbar-model-badge">
+      <span class="status-badge" id="topbar-offline-badge" title="Network Boundary Status">
+        <span class="dot offline"></span>
+        <span id="topbar-offline-text">OFFLINE</span>
+      </span>
+      <div class="status-badge clickable" id="topbar-model-badge" title="Active Model (Click to Switch or Import)">
         <span class="dot" id="topbar-model-dot"></span>
         <span id="topbar-model-text">No Model Loaded</span>
       </div>
-      <div class="status-badge" id="topbar-hw-badge">
+      <div class="status-badge" id="topbar-hw-badge" title="Hardware Profile">
         <span class="dot active"></span>
         <span id="topbar-hw-text">AMD Ryzen 5</span>
       </div>
-      <button class="btn btn-sm" id="btn-theme-toggle" title="Toggle Light/Dark Theme" aria-label="Toggle Theme">🌓</button>
+      <button class="btn btn-sm btn-ghost" id="btn-theme-toggle" title="Toggle Light/Dark Theme" aria-label="Toggle Theme">🌓</button>
     </div>
   </header>
 
   <div class="app-body">
-    <!-- Persistent Left Sidebar with 10 Screens -->
+    <!-- Persistent Left Sidebar with Grouped Navigation -->
     <nav class="sidebar" id="app-sidebar" aria-label="Main Navigation">
-      <div class="nav-item active" data-screen="home-screen" tabindex="0">
+      <div class="nav-group-title">Workspace</div>
+      <div class="nav-item active" data-screen="home-screen" tabindex="0" role="button" aria-label="Home Dashboard">
         <span class="nav-icon">🏠</span>
         <span class="nav-text">Home</span>
       </div>
-      <div class="nav-item" data-screen="chat-screen" tabindex="0">
+      <div class="nav-item" data-screen="chat-screen" tabindex="0" role="button" aria-label="Chat Workspace">
         <span class="nav-icon">💬</span>
         <span class="nav-text">Chat</span>
       </div>
-      <div class="nav-item" data-screen="files-screen" tabindex="0">
+
+      <div class="nav-group-title">Knowledge &amp; Code</div>
+      <div class="nav-item" data-screen="files-screen" tabindex="0" role="button" aria-label="File Intelligence">
         <span class="nav-icon">📁</span>
         <span class="nav-text">Files</span>
       </div>
-      <div class="nav-item" data-screen="rag-screen" tabindex="0">
+      <div class="nav-item" data-screen="rag-screen" tabindex="0" role="button" aria-label="Knowledge & RAG">
         <span class="nav-icon">📚</span>
-        <span class="nav-text">Knowledge & RAG</span>
+        <span class="nav-text">Knowledge &amp; RAG</span>
       </div>
-      <div class="nav-item" data-screen="research-screen" tabindex="0">
+      <div class="nav-item" data-screen="research-screen" tabindex="0" role="button" aria-label="Research Workspace">
         <span class="nav-icon">🔍</span>
         <span class="nav-text">Research</span>
       </div>
-      <div class="nav-item" data-screen="studio-screen" tabindex="0">
+      <div class="nav-item" data-screen="studio-screen" tabindex="0" role="button" aria-label="Coding Studio">
         <span class="nav-icon">🛠️</span>
         <span class="nav-text">Coding Studio</span>
       </div>
-      <div class="nav-item" data-screen="models-screen" tabindex="0">
+
+      <div class="nav-group-title">System</div>
+      <div class="nav-item" data-screen="models-screen" tabindex="0" role="button" aria-label="Model Manager">
         <span class="nav-icon">⚡</span>
         <span class="nav-text">Model Manager</span>
       </div>
-      <div class="nav-item" data-screen="voice-screen" tabindex="0">
+      <div class="nav-item" data-screen="voice-screen" tabindex="0" role="button" aria-label="Voice Interaction">
         <span class="nav-icon">🎙️</span>
         <span class="nav-text">Voice</span>
       </div>
-      <div class="nav-item" data-screen="activity-screen" tabindex="0">
+      <div class="nav-item" data-screen="activity-screen" tabindex="0" role="button" aria-label="Activity & Background Tasks">
         <span class="nav-icon">⏱️</span>
         <span class="nav-text">Activity</span>
       </div>
-      <div class="nav-item" data-screen="settings-screen" tabindex="0">
+      <div class="nav-item" data-screen="settings-screen" tabindex="0" role="button" aria-label="Settings & Diagnostics">
         <span class="nav-icon">⚙️</span>
         <span class="nav-text">Settings</span>
       </div>
@@ -89,14 +96,28 @@
             <p class="home-subtitle">Private, offline-first intelligence running locally on your laptop.</p>
           </div>
 
+          <!-- Onboarding / No-Model Notice Banner (Hidden when model is active) -->
+          <div id="home-no-model-banner" class="home-onboarding-banner" style="display: none;">
+            <div>
+              <div style="font-weight: 600; font-size: 13.5px; color: var(--text-primary);">⚡ Local Model Required for Inference</div>
+              <div style="font-size: 12px; color: var(--text-secondary); margin-top: 3px;">
+                ASTRO operates 100% offline. Import an existing <code>.gguf</code> model from your drive or configure one in Model Manager.
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-shrink: 0;">
+              <button class="btn btn-sm" id="home-btn-import-gguf">📥 Import Local GGUF</button>
+              <button class="btn btn-sm btn-primary" id="home-btn-manage-models">Open Model Manager</button>
+            </div>
+          </div>
+
           <!-- Central Prompt Input -->
           <div class="home-input-card">
-            <textarea class="home-prompt-area" id="home-prompt-input" placeholder="Ask a question, search documents, or request code modifications..."></textarea>
+            <textarea class="home-prompt-area" id="home-prompt-input" placeholder="Ask a question, query local documents, or request code modifications..."></textarea>
             <div class="home-input-actions">
-              <div style="display: flex; gap: 8px;">
+              <div style="display: flex; gap: 8px; align-items: center;">
                 <button class="btn btn-sm" id="home-mic-btn" title="Voice Input">🎙️ Mic</button>
-                <label style="font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 5px;">
-                  <input type="checkbox" id="home-rag-toggle" checked> Local RAG
+                <label style="font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                  <input type="checkbox" id="home-rag-toggle" checked> Local RAG Grounding
                 </label>
               </div>
               <button class="btn btn-primary" id="home-prompt-send">Send to Chat</button>
@@ -105,25 +126,25 @@
 
           <!-- Quick Actions Grid -->
           <div class="quick-actions-grid">
-            <div class="quick-action-btn" id="qa-find-files">
+            <div class="quick-action-btn" id="qa-find-files" role="button" tabindex="0">
               <span class="qa-icon">📁</span>
               <span class="qa-title">Find Local Files</span>
               <span class="qa-desc">Search files and inspect code in workspace</span>
             </div>
-            <div class="quick-action-btn" id="qa-ask-rag">
+            <div class="quick-action-btn" id="qa-ask-rag" role="button" tabindex="0">
               <span class="qa-icon">📚</span>
               <span class="qa-title">Query Knowledge</span>
               <span class="qa-desc">Retrieve answers from indexed documents</span>
             </div>
-            <div class="quick-action-btn" id="qa-start-coding">
+            <div class="quick-action-btn" id="qa-start-coding" role="button" tabindex="0">
               <span class="qa-icon">🛠️</span>
               <span class="qa-title">Coding Task</span>
-              <span class="qa-desc">Inspect project, review diffs & run tests</span>
+              <span class="qa-desc">Inspect project, review diffs &amp; run tests</span>
             </div>
-            <div class="quick-action-btn" id="qa-research">
+            <div class="quick-action-btn" id="qa-research" role="button" tabindex="0">
               <span class="qa-icon">🔍</span>
               <span class="qa-title">Research</span>
-              <span class="qa-desc">Local-first knowledge and web queries</span>
+              <span class="qa-desc">Local-first knowledge and document queries</span>
             </div>
           </div>
 
@@ -135,12 +156,12 @@
                 Checking model status...
               </div>
               <div style="margin-top: 12px;">
-                <button class="btn btn-sm btn-primary" id="home-btn-manage-models">Open Model Manager</button>
+                <button class="btn btn-sm btn-ghost" id="home-btn-switch-model" style="border: 1px solid var(--border-subtle);">Switch Active Model</button>
               </div>
             </div>
 
             <div class="card">
-              <div class="card-title">System & Storage Readiness</div>
+              <div class="card-title">System &amp; Storage Readiness</div>
               <div id="home-system-card-content" style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">
                 Detecting hardware resources...
               </div>
@@ -170,11 +191,11 @@
         <div class="chat-workspace">
           <!-- Conversation History Sidebar -->
           <aside class="chat-history-sidebar">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <span style="font-size: 12px; font-weight: 600;">Conversations</span>
-              <button class="btn btn-sm btn-primary" id="btn-chat-new" title="New Conversation">+ New</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);">
+              <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Conversations</span>
+              <button class="btn btn-sm btn-primary" id="btn-chat-new" title="Start New Conversation">+ New</button>
             </div>
-            <div id="chat-conv-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+            <div id="chat-conv-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 3px;">
               <!-- Populated by app.js -->
             </div>
           </aside>
@@ -182,13 +203,13 @@
           <!-- Main Chat Panel -->
           <div class="chat-main-area">
             <div class="chat-header-bar">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <span id="chat-active-conv-title" style="font-weight: 600; font-size: 13px;">New Conversation</span>
+              <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span id="chat-active-conv-title" style="font-weight: 600; font-size: 13px; color: var(--text-primary);">New Conversation</span>
                 <span class="status-badge" id="chat-processing-mode">Local Offline</span>
-                <span class="status-badge" id="chat-active-model-pill" style="cursor: pointer; background: rgba(99, 102, 241, 0.15); color: var(--accent-primary);" title="Active Model. Click to switch or import.">🤖 Model: Loading...</span>
+                <span class="status-badge clickable" id="chat-active-model-pill" style="background: var(--accent-primary-subtle); color: var(--accent-primary);" title="Active Model. Click to switch or import.">🤖 Model: Loading...</span>
                 <span class="status-badge" id="chat-voice-badge" style="display: none; background: rgba(59, 130, 246, 0.15); color: var(--accent-primary);">Mic Idle</span>
               </div>
-              <div style="display: flex; gap: 8px;">
+              <div style="display: flex; gap: 6px;">
                 <button class="btn btn-sm btn-danger" id="btn-chat-stop-speaking" style="display: none;" title="Interrupt voice response">⏹ Stop Speaking</button>
                 <button class="btn btn-sm" id="btn-chat-rename">Rename</button>
                 <button class="btn btn-sm btn-danger" id="btn-chat-delete">Delete</button>
@@ -199,7 +220,7 @@
             <div id="chat-drop-zone" class="chat-drop-overlay" style="display: none;">
               <div class="chat-drop-content">
                 <div style="font-size: 38px; margin-bottom: 8px;">📥</div>
-                <div style="font-weight: 600; font-size: 15px; color: var(--text-primary);">Drop GGUF Model to Inspect & Import</div>
+                <div style="font-weight: 600; font-size: 15px; color: var(--text-primary);">Drop GGUF Model to Inspect &amp; Import</div>
                 <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">ASTRO will inspect architecture, verify GGUF format, and evaluate memory requirements.</div>
               </div>
             </div>
@@ -207,7 +228,13 @@
             <div class="chat-messages-scroll" id="chat-messages-scroll">
               <div class="msg-row assistant">
                 <div class="msg-bubble">
-                  ASTRO is ready. Ask questions, explore documents, or manage models. All model inference and data remain completely offline and private on your device.
+                  <strong>ASTRO Assistant</strong> is ready.<br>
+                  Ask questions, query indexed documents, or run coding tasks. All inference and knowledge retrieval remain completely private and offline on your computer.
+                  <div class="prompt-suggestion-chips">
+                    <span class="prompt-chip" data-prompt="What models are currently registered?">⚡ Check Models</span>
+                    <span class="prompt-chip" data-prompt="Explain neural network quantization (Q4_K_M vs Q8_0)">🧠 Explain Quantization</span>
+                    <span class="prompt-chip" data-prompt="Search local documents for project architecture">📚 Search Knowledge</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -216,7 +243,7 @@
             <div class="chat-compose-area">
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <label for="chat-mode-select" style="font-size: 11.5px; color: var(--text-muted); font-weight: 500;">Mode:</label>
+                  <label for="chat-mode-select" style="font-size: 11.5px; color: var(--text-muted); font-weight: 500;">Grounding:</label>
                   <select class="select-input" id="chat-mode-select" style="padding: 2px 8px; font-size: 12px; height: 26px;">
                     <option value="local-files">📚 Local files (grounded)</option>
                     <option value="general-assistant">💬 General assistant (no retrieval)</option>
@@ -224,11 +251,11 @@
                   </select>
                   <span id="chat-sources-chip" style="font-size: 11px; color: var(--accent-primary); display: none;">0 sources selected</span>
                 </div>
-                <div id="chat-metrics-bar" style="font-size: 11.5px; color: var(--text-muted);"></div>
+                <div id="chat-metrics-bar" style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted);"></div>
                 <button class="btn btn-danger btn-sm" id="btn-chat-stop" style="display: none;">Stop</button>
               </div>
 
-              <!-- Transcript preview & edit bar (Phase 6) -->
+              <!-- Transcript preview & edit bar -->
               <div id="chat-transcript-bar" class="transcript-preview-bar" style="display: none;">
                 <span style="font-size: 14px;">🎙️</span>
                 <input type="text" id="chat-transcript-input" style="flex: 1; background: transparent; border: 1px solid var(--border-subtle); color: var(--text-primary); font-size: 12px; padding: 4px 8px; border-radius: 4px;" placeholder="Transcript preview...">
@@ -236,11 +263,11 @@
                 <button class="btn btn-sm" id="btn-transcript-cancel">Cancel</button>
               </div>
 
-              <div style="display: flex; gap: 8px; margin-top: 6px;">
-                <button class="btn btn-sm" id="btn-chat-model-action" title="Manage, Switch, or Import Local Models" style="padding: 0 10px; font-size: 12.5px;">🤖 Models</button>
-                <button class="btn btn-sm" id="btn-chat-mic" title="Voice Input / Push-to-Talk" style="padding: 0 12px; font-size: 15px;">🎙️</button>
+              <div style="display: flex; gap: 8px; margin-top: 4px; align-items: flex-end;">
+                <button class="btn btn-sm" id="btn-chat-model-action" title="Manage, Switch, or Import Local Models" style="padding: 0 10px; font-size: 12px; height: 38px;">🤖 Models</button>
+                <button class="btn btn-sm" id="btn-chat-mic" title="Voice Input / Push-to-Talk" style="padding: 0 12px; font-size: 15px; height: 38px;">🎙️</button>
                 <textarea class="chat-compose-input" id="chat-input-text" placeholder="Type a message or model command (e.g. 'Import a model', 'Switch to Qwen3-8B', 'List models')..."></textarea>
-                <button class="btn btn-primary" id="btn-chat-send">Send</button>
+                <button class="btn btn-primary" id="btn-chat-send" style="height: 38px; padding: 0 16px;">Send</button>
               </div>
             </div>
 
@@ -252,7 +279,7 @@
       <section class="screen" id="files-screen">
         <div class="screen-header">
           <div>
-            <h2 class="screen-title">File Intelligence & Library</h2>
+            <h2 class="screen-title">File Intelligence &amp; Library</h2>
             <p class="screen-desc">Manage indexed folders, inspect file metadata, and trigger incremental processing.</p>
           </div>
           <div style="display: flex; gap: 8px;">
@@ -269,7 +296,7 @@
             <div id="files-library-roots" style="font-size: 11.5px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; margin-top: 4px; max-height: 120px; overflow-y: auto;">
               <!-- Populated by app.js -->
             </div>
-            <div class="card-title" style="margin-top: 12px;">Filter & Scope</div>
+            <div class="card-title" style="margin-top: 12px;">Filter &amp; Scope</div>
             <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
               <select class="select-input" id="files-category-filter">
                 <option value="all">All File Types</option>
@@ -314,7 +341,7 @@
       <section class="screen" id="rag-screen">
         <div class="screen-header">
           <div>
-            <h2 class="screen-title">Knowledge Collections & Local RAG</h2>
+            <h2 class="screen-title">Knowledge Collections &amp; Local RAG</h2>
             <p class="screen-desc">Hybrid BM25 and semantic vector retrieval with verified source citations.</p>
           </div>
           <div style="display: flex; gap: 8px;">
@@ -329,7 +356,7 @@
             <span id="rag-progress-label" style="font-size: 12px; font-weight: 600;">Indexing Files...</span>
             <button class="btn btn-sm btn-danger" id="btn-rag-cancel-index">Cancel</button>
           </div>
-          <div style="background: var(--bg-secondary); border-radius: 4px; height: 8px; overflow: hidden; margin-top: 8px;">
+          <div style="background: var(--bg-input); border-radius: 4px; height: 8px; overflow: hidden; margin-top: 8px; border: 1px solid var(--border-subtle);">
             <div id="rag-progress-bar" style="background: var(--accent-primary); width: 0%; height: 100%; transition: width 0.3s;"></div>
           </div>
           <div id="rag-progress-detail" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">0 / 0 files processed</div>
@@ -338,7 +365,7 @@
         <div class="rag-cols">
           <!-- Collections sidebar -->
           <div class="panel">
-            <div class="card-title">Collections & Embedding</div>
+            <div class="card-title">Collections &amp; Embedding</div>
             <div id="rag-collections-list" style="display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 180px;">
               <!-- Populated by app.js -->
             </div>
@@ -356,7 +383,7 @@
           <div class="panel">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <div>
-                <strong id="rag-active-coll-name">Collection: default</strong>
+                <strong id="rag-active-coll-name" style="font-size: 13.5px;">Collection: default</strong>
                 <div id="rag-active-coll-meta" style="font-size: 11.5px; color: var(--text-muted);">0 documents · 0 chunks</div>
               </div>
               <button class="btn btn-sm btn-danger" id="btn-rag-delete-coll">Delete Collection</button>
@@ -364,7 +391,7 @@
 
             <div style="margin-top: 14px;">
               <div class="card-title">Indexed Documents in Collection</div>
-              <div id="rag-docs-table-wrap" style="max-height: 180px; overflow-y: auto; margin-top: 6px;">
+              <div id="rag-docs-table-wrap" style="max-height: 180px; overflow-y: auto; margin-top: 6px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
                 <table class="data-table" id="rag-docs-table">
                   <thead>
                     <tr><th>Document</th><th>Chunks</th><th>Indexed At</th><th>Action</th></tr>
@@ -396,7 +423,7 @@
             <p class="screen-desc">Local-first document research with optional external web queries.</p>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span class="status-badge" id="research-conn-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-success);">● Offline / Private</span>
+            <span class="status-badge" id="research-conn-badge" style="background: var(--accent-success-subtle); color: var(--accent-success);">● Offline / Private</span>
           </div>
         </div>
 
@@ -408,9 +435,9 @@
               <button class="btn btn-danger btn-sm" id="btn-research-cancel" style="display: none;">Cancel</button>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-              <label style="font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+              <label style="font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; cursor: pointer;">
                 <input type="checkbox" id="research-online-toggle">
-                <span>Enable Online Research (Requires explicit user permission per Rule 2 & 4)</span>
+                <span>Enable Online Research (Requires explicit user permission per Rule 2 &amp; 4)</span>
               </label>
               <span id="research-status-label" style="font-size: 11.5px; color: var(--text-muted);">Idle</span>
             </div>
@@ -438,7 +465,7 @@
       <section class="screen" id="studio-screen">
         <div class="screen-header">
           <div>
-            <h2 class="screen-title">Coding Studio & Project Intelligence</h2>
+            <h2 class="screen-title">Coding Studio &amp; Project Intelligence</h2>
             <p class="screen-desc">Workspace file browser, code intelligence, diff review, safe editing, and test execution.</p>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
@@ -456,10 +483,10 @@
           <div class="panel">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <div class="card-title" style="margin-bottom: 0;">Project Files</div>
-              <button class="btn btn-sm" id="btn-studio-refresh-tree" title="Refresh files" style="padding: 2px 6px; font-size: 10px;">🔄</button>
+              <button class="btn btn-sm btn-ghost" id="btn-studio-refresh-tree" title="Refresh files" style="padding: 2px 6px; font-size: 10px;">🔄</button>
             </div>
             <input type="text" class="input-text" id="studio-tree-search" placeholder="Search files or code..." style="font-size: 11px; padding: 4px 8px; margin-bottom: 6px;">
-            <div id="studio-tree-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+            <div id="studio-tree-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 3px;">
               <div style="color: var(--text-muted); font-size: 11.5px; padding: 10px 0;">Open a project folder to inspect files.</div>
             </div>
           </div>
@@ -467,10 +494,10 @@
           <!-- Code & Diff Viewer -->
           <div class="panel">
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
-              <span id="studio-active-file-label" style="font-weight: 600; font-size: 12px; word-break: break-all;">No File Open</span>
+              <span id="studio-active-file-label" style="font-weight: 600; font-size: 12px; font-family: var(--font-mono); word-break: break-all; color: var(--text-primary);">No File Open</span>
               <div style="display: flex; gap: 6px;">
                 <button class="btn btn-sm btn-danger" id="btn-studio-reject-diff" style="display: none;">Reject Diff</button>
-                <button class="btn btn-sm btn-primary" id="btn-studio-apply-diff" style="display: none;">Approve & Apply (Rule 14)</button>
+                <button class="btn btn-sm btn-primary" id="btn-studio-apply-diff" style="display: none;">Approve &amp; Apply (Rule 14)</button>
                 <button class="btn btn-sm" id="btn-studio-revert-diff" style="display: none;" title="Restore file from previous backup">↩ Revert Changes</button>
               </div>
             </div>
@@ -483,14 +510,14 @@
           <!-- Terminal & Execution Panel -->
           <div class="panel">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div class="card-title" style="margin-bottom: 0;">Terminal & Checks</div>
+              <div class="card-title" style="margin-bottom: 0;">Terminal &amp; Checks</div>
               <span id="studio-cmd-status-badge" class="status-badge" style="display: none;">Ready</span>
             </div>
             <div class="terminal-container" id="studio-terminal-output" style="flex: 1; min-height: 200px;">ASTRO Terminal initialized. Commands require explicit approval (Rule 9).</div>
-            <div style="display: flex; gap: 6px; margin: 6px 0;">
-              <button class="btn btn-sm" id="btn-quick-test" style="font-size: 10px; padding: 2px 6px;">▶ npm test</button>
-              <button class="btn btn-sm" id="btn-quick-lint" style="font-size: 10px; padding: 2px 6px;">▶ npm run lint</button>
-              <button class="btn btn-sm" id="btn-quick-git" style="font-size: 10px; padding: 2px 6px;">▶ git status</button>
+            <div style="display: flex; gap: 6px; margin: 6px 0; flex-wrap: wrap;">
+              <button class="btn btn-sm btn-ghost" id="btn-quick-test" style="font-size: 10.5px; border: 1px solid var(--border-subtle);">▶ npm test</button>
+              <button class="btn btn-sm btn-ghost" id="btn-quick-lint" style="font-size: 10.5px; border: 1px solid var(--border-subtle);">▶ npm run lint</button>
+              <button class="btn btn-sm btn-ghost" id="btn-quick-git" style="font-size: 10.5px; border: 1px solid var(--border-subtle);">▶ git status</button>
             </div>
             <div style="display: flex; gap: 6px;">
               <input type="text" class="input-text" id="studio-cmd-input" placeholder="npm test..." style="flex: 1; font-family: var(--font-mono); font-size: 11.5px;">
@@ -505,19 +532,19 @@
       <section class="screen" id="models-screen">
         <div class="screen-header">
           <div>
-            <h2 class="screen-title">Local Model Manager & Hugging Face Engine</h2>
+            <h2 class="screen-title">Local Model Manager &amp; Hugging Face Engine</h2>
             <p class="screen-desc">Discover, download, verify, load, switch, and delete local GGUF models with offline persistence.</p>
           </div>
           <div style="display: flex; gap: 8px;">
             <button class="btn btn-sm" id="btn-models-import-local">📥 Import Local GGUF</button>
-            <button class="btn btn-sm" id="btn-models-change-storage">Change Storage Location</button>
+            <button class="btn btn-sm" id="btn-models-change-storage">Change Storage</button>
             <button class="btn btn-primary btn-sm" id="btn-models-discover">Refresh Qwen Repository</button>
           </div>
         </div>
 
         <!-- Auto-Detected Workspace Models Banner -->
-        <div id="models-detected-banner" class="card" style="margin-bottom: 14px; display: none; border-left: 4px solid var(--accent-success); background: rgba(34, 197, 94, 0.06);">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div id="models-detected-banner" class="card" style="margin-bottom: 14px; display: none; border-left: 4px solid var(--accent-success); background: var(--accent-success-subtle);">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <div>
               <div style="font-weight: 600; font-size: 13px; color: var(--accent-success);" id="detected-banner-title">✨ Detected Local GGUF Model in Workspace</div>
               <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;" id="detected-banner-desc">Ready to integrate and use offline without downloading.</div>
@@ -531,14 +558,14 @@
         <!-- Hardware & Storage Info -->
         <div class="panel-row">
           <div class="card" style="flex: 2; margin-bottom: 0;">
-            <div class="card-title">Hardware Profile & Compatibility</div>
+            <div class="card-title">Hardware Profile &amp; Compatibility</div>
             <div id="models-hw-details" style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-top: 4px;">
               Detecting hardware profile...
             </div>
           </div>
           <div class="card" style="flex: 1; margin-bottom: 0;">
             <div class="card-title">Managed Storage Location</div>
-            <div id="models-storage-path" style="font-size: 11.5px; color: var(--text-muted); word-break: break-all; margin-top: 4px;">
+            <div id="models-storage-path" style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted); word-break: break-all; margin-top: 4px;">
               Loading storage location...
             </div>
             <div id="models-storage-free" style="font-size: 12px; font-weight: 600; color: var(--text-primary); margin-top: 6px;">
@@ -552,7 +579,7 @@
           <div class="card-title">Add Custom Hugging Face Repository</div>
           <div style="display: flex; gap: 10px; margin-top: 6px;">
             <input type="text" class="input-text" id="models-custom-repo-input" placeholder="e.g. Qwen/Qwen2.5-Coder-7B-Instruct-GGUF" style="flex: 1;">
-            <button class="btn btn-sm btn-primary" id="btn-models-add-repo">Discover & Add to Catalog</button>
+            <button class="btn btn-sm btn-primary" id="btn-models-add-repo">Discover &amp; Add to Catalog</button>
           </div>
           <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 4px;">
             Format must be <code>author/model-name</code>. Only compatible GGUF variants will be downloaded upon explicit user selection.
@@ -568,8 +595,8 @@
         </div>
 
         <!-- Discovered & Catalog Models Grid -->
-        <div class="card-title" style="margin-top: 16px; margin-bottom: 10px;">Available & Installed Local Models</div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px;" id="models-cards-grid">
+        <div class="card-title" style="margin-top: 16px; margin-bottom: 10px;">Available &amp; Installed Local Models</div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px;" id="models-cards-grid">
           <!-- Populated by app.js -->
         </div>
       </section>
@@ -585,8 +612,8 @@
 
         <div style="max-width: 650px; margin: 0 auto; width: 100%; display: flex; flex-direction: column; gap: 16px;">
           <div class="card voice-hero">
-            <div class="mic-circle" id="voice-mic-circle" title="Click to speak">🎙️</div>
-            <div id="voice-status-heading" style="font-weight: 600; font-size: 14px;">Microphone Idle</div>
+            <div class="mic-circle" id="voice-mic-circle" title="Click to speak" role="button" tabindex="0">🎙️</div>
+            <div id="voice-status-heading" style="font-weight: 600; font-size: 14px; color: var(--text-primary);">Microphone Idle</div>
             <div id="voice-transcription-preview" style="font-size: 12px; color: var(--text-muted); text-align: center; max-width: 480px;">
               Speech-to-text preview will appear here.
             </div>
@@ -598,7 +625,7 @@
           </div>
 
           <div class="card">
-            <div class="card-title">Speech Synthesis (TTS) & Voices</div>
+            <div class="card-title">Speech Synthesis (TTS) &amp; Voices</div>
             <div class="setting-row">
               <div>
                 <div class="setting-title">Spoken Responses (TTS)</div>
@@ -629,10 +656,10 @@
           </div>
 
           <div class="card">
-            <div class="card-title">Microphone & Wake Word</div>
+            <div class="card-title">Microphone &amp; Wake Word</div>
             <div class="setting-row">
               <div>
-                <div class="setting-title">Microphone Permissions & Test</div>
+                <div class="setting-title">Microphone Permissions &amp; Test</div>
                 <div class="setting-subtitle">Test live audio input meter</div>
               </div>
               <div style="display: flex; align-items: center; gap: 8px;">
@@ -668,7 +695,7 @@
       <section class="screen" id="activity-screen">
         <div class="screen-header">
           <div>
-            <h2 class="screen-title">Activity & Background Tasks</h2>
+            <h2 class="screen-title">Activity &amp; Background Tasks</h2>
             <p class="screen-desc">Real-time status of downloads, model loading, indexing, and command execution.</p>
           </div>
           <div style="display: flex; gap: 8px;">
@@ -678,7 +705,7 @@
         </div>
 
         <div class="activity-list" id="activity-tasks-container">
-          <div style="font-size: 12px; color: var(--text-muted); padding: 16px; text-align: center;">
+          <div style="font-size: 12px; color: var(--text-muted); padding: 24px; text-align: center;">
             No background activities recorded.
           </div>
         </div>
@@ -688,18 +715,18 @@
       <section class="screen" id="settings-screen">
         <div class="screen-header">
           <div>
-            <h2 class="screen-title">Settings & System Diagnostics</h2>
+            <h2 class="screen-title">Settings &amp; System Diagnostics</h2>
             <p class="screen-desc">Manage privacy, models, files, voice, performance, and view diagnostics.</p>
           </div>
           <button class="btn btn-primary btn-sm" id="btn-settings-save">Save Settings</button>
         </div>
 
         <div class="settings-nav-tabs">
-          <div class="settings-tab active" data-tab="tab-appearance">Appearance</div>
-          <div class="settings-tab" data-tab="tab-privacy">Privacy</div>
-          <div class="settings-tab" data-tab="tab-models">Models & Inference</div>
-          <div class="settings-tab" data-tab="tab-permissions">Permissions</div>
-          <div class="settings-tab" data-tab="tab-diagnostics">Diagnostics</div>
+          <div class="settings-tab active" data-tab="tab-appearance" role="button" tabindex="0">Appearance</div>
+          <div class="settings-tab" data-tab="tab-privacy" role="button" tabindex="0">Privacy</div>
+          <div class="settings-tab" data-tab="tab-models" role="button" tabindex="0">Models &amp; Inference</div>
+          <div class="settings-tab" data-tab="tab-permissions" role="button" tabindex="0">Permissions</div>
+          <div class="settings-tab" data-tab="tab-diagnostics" role="button" tabindex="0">Diagnostics</div>
         </div>
 
         <div id="settings-tab-content">
@@ -708,7 +735,7 @@
             <div class="setting-row">
               <div>
                 <div class="setting-title">Application Theme</div>
-                <div class="setting-subtitle">Restrained dark theme or high-contrast light theme</div>
+                <div class="setting-subtitle">Calm dark professional theme or high-contrast light theme</div>
               </div>
               <select class="select-input" id="setting-theme-select">
                 <option value="dark">Dark Theme (Default)</option>
@@ -729,7 +756,7 @@
             <div class="setting-row">
               <div>
                 <div class="setting-title">Offline-First Enforcement</div>
-                <div class="setting-subtitle">Block all outbound cloud connections and telemetry (Rule 2 & Rule 4)</div>
+                <div class="setting-subtitle">Block all outbound cloud connections and telemetry (Rule 2 &amp; Rule 4)</div>
               </div>
               <input type="checkbox" id="setting-privacy-offline" checked>
             </div>
@@ -795,8 +822,8 @@
           <!-- Diagnostics Tab -->
           <div class="settings-pane" id="tab-diagnostics" style="display: none;">
             <div class="card">
-              <div class="card-title">System & Diagnostic Report</div>
-              <pre id="settings-diag-output" style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary); margin-top: 8px; line-height: 1.6;">
+              <div class="card-title">System &amp; Diagnostic Report</div>
+              <pre id="settings-diag-output" style="font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary); margin-top: 8px; line-height: 1.6; background: var(--bg-input); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); overflow-x: auto;">
 Loading diagnostics...
               </pre>
             </div>
@@ -831,7 +858,7 @@ Loading diagnostics...
   <!-- Modal: Inspect and Import Local Model (BYOM) -->
   <div id="modal-model-inspect" class="astro-modal-backdrop" style="display: none;">
     <div class="astro-modal-box">
-      <div class="astro-modal-title">📥 Inspect & Import Local Model</div>
+      <div class="astro-modal-title">📥 Inspect &amp; Import Local Model</div>
       <div class="astro-modal-body">
         <div id="inspect-loading" style="text-align: center; padding: 20px; color: var(--text-muted);">
           Inspecting GGUF header, architecture, and memory requirements...
@@ -848,7 +875,7 @@ Loading diagnostics...
           <div id="inspect-memory-warning" class="notice-box warning" style="display: none; margin-top: 10px;"></div>
           <div id="inspect-duplicate-warning" class="notice-box info" style="display: none; margin-top: 10px;"></div>
           <div style="margin-top: 12px;">
-            <label style="font-weight: 600; font-size: 11.5px; color: var(--text-primary); display: block; margin-bottom: 4px;">Display Name:</label>
+            <label for="inspect-display-name" style="font-weight: 600; font-size: 11.5px; color: var(--text-primary); display: block; margin-bottom: 4px;">Display Name:</label>
             <input type="text" class="input-text" id="inspect-display-name" style="width: 100%;">
           </div>
           <div style="margin-top: 12px; font-size: 11.5px; color: var(--text-secondary);">
@@ -872,7 +899,7 @@ Loading diagnostics...
       </div>
       <div class="astro-modal-footer">
         <button class="btn btn-sm" id="btn-inspect-cancel">Cancel</button>
-        <button class="btn btn-sm btn-primary" id="btn-inspect-confirm" disabled>Confirm & Register</button>
+        <button class="btn btn-sm btn-primary" id="btn-inspect-confirm" disabled>Confirm &amp; Register</button>
       </div>
     </div>
   </div>
@@ -880,7 +907,7 @@ Loading diagnostics...
   <!-- Modal: Model Switcher / Action Menu -->
   <div id="modal-model-switcher" class="astro-modal-backdrop" style="display: none;">
     <div class="astro-modal-box">
-      <div class="astro-modal-title">🤖 Local Model Library & Switcher</div>
+      <div class="astro-modal-title">🤖 Local Model Library &amp; Switcher</div>
       <div class="astro-modal-body">
         <div style="display: flex; gap: 8px; margin-bottom: 12px;">
           <button class="btn btn-sm btn-primary" id="btn-modal-import-trigger">📥 Import Local GGUF</button>
@@ -897,7 +924,9 @@ Loading diagnostics...
     </div>
   </div>
 
+  <!-- Floating Toast Notifications Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
   <script src="app.js"></script>
 </body>
 </html>
-

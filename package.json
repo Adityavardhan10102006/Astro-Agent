@@ -10,7 +10,9 @@
     "build": "electron-builder --win",
     "build:installer": "electron-builder --win nsis",
     "build:portable": "electron-builder --win portable",
-    "build:dir": "electron-builder --win dir"
+    "build:dir": "electron-builder --win dir",
+    "generate:checksums": "node scripts/verify-release-checksums.js --generate",
+    "verify:checksums": "node scripts/verify-release-checksums.js --verify"
   },
   "keywords": [
     "desktop",

@@ -115,9 +115,21 @@ class StorageService {
     this.ensureDirectories();
     try {
       const data = fs.readFileSync(this.paths.settingsFile, 'utf8');
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+      const settings = { ...DEFAULT_SETTINGS, ...JSON.parse(data) };
+      if (settings.privacy) {
+        if (settings.offlineOnly === undefined) settings.offlineOnly = settings.privacy.offlineOnly;
+        if (settings.telemetryEnabled === undefined) settings.telemetryEnabled = settings.privacy.telemetryEnabled;
+        if (settings.autoUpload === undefined) settings.autoUpload = settings.privacy.autoUpload;
+      }
+      return settings;
     } catch (err) {
-      return DEFAULT_SETTINGS;
+      const settings = { ...DEFAULT_SETTINGS };
+      if (settings.privacy) {
+        if (settings.offlineOnly === undefined) settings.offlineOnly = settings.privacy.offlineOnly;
+        if (settings.telemetryEnabled === undefined) settings.telemetryEnabled = settings.privacy.telemetryEnabled;
+        if (settings.autoUpload === undefined) settings.autoUpload = settings.privacy.autoUpload;
+      }
+      return settings;
     }
   }
 

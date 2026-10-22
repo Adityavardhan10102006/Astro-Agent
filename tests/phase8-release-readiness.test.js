@@ -365,3 +365,27 @@ test('Phase 8: 12. Single loaded model enforcement prevents simultaneous multi-m
     fs.rmSync(testDir, { recursive: true, force: true });
   }
 });
+
+test('Phase 8: 13. Production source portability: Zero hardcoded machine-specific paths in src/ files', () => {
+  const srcDir = path.resolve(__dirname, '..', 'src');
+  
+  function scanDir(dir) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        scanDir(fullPath);
+      } else if (entry.isFile() && (entry.name.endsWith('.js') || entry.name.endsWith('.html') || entry.name.endsWith('.css'))) {
+        const content = fs.readFileSync(fullPath, 'utf8');
+        // Check for hardcoded machine-specific developer user path
+        assert.ok(
+          !content.includes('c:\\aditya') && !content.includes('c:/aditya') && !content.includes('C:\\aditya') && !content.includes('C:/aditya'),
+          `File ${path.relative(srcDir, fullPath)} contains hardcoded machine-specific developer path`
+        );
+      }
+    }
+  }
+
+  scanDir(srcDir);
+});
+

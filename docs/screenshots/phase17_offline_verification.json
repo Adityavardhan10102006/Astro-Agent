@@ -1,0 +1,50 @@
+{
+  "steps": [
+    {
+      "name": "model_physical_verification",
+      "status": "passed",
+      "sizeBytes": 5027783488,
+      "tensorCount": 399
+    },
+    {
+      "name": "isolated_storage_init",
+      "status": "passed"
+    },
+    {
+      "name": "zero_copy_registration",
+      "status": "passed"
+    },
+    {
+      "name": "missing_model_handling",
+      "status": "passed"
+    },
+    {
+      "name": "streaming_chat_turn",
+      "status": "passed",
+      "tokenCount": 51
+    },
+    {
+      "name": "multi_turn_history",
+      "status": "passed",
+      "messageCount": 4
+    },
+    {
+      "name": "generation_cancellation",
+      "status": "passed",
+      "tokensBeforeCancel": 3
+    },
+    {
+      "name": "model_switching_single_confinement",
+      "status": "passed"
+    },
+    {
+      "name": "restart_persistence",
+      "status": "passed"
+    },
+    {
+      "name": "deregistration_preserves_file",
+      "status": "passed"
+    }
+  ],
+  "errors": []
+}

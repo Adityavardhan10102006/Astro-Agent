@@ -14,6 +14,7 @@ class RAGService extends EventEmitter {
     this.security = securityService || { isPathAllowed: () => true };
     this.embeddingManager = embeddingManager || new EmbeddingManager(storageService);
     this.extractors = new DocumentExtractorRegistry();
+    this.extractorRegistry = this.extractors;
     this.chunker = new DocumentChunker(options);
     this.library = new LibraryService(this.storage, this.security, this.extractors);
     this.retrieval = new RetrievalService(options);

@@ -30,7 +30,8 @@ contextBridge.exposeInMainWorld('astroApi', {
   importLocalModel: (args) => ipcRenderer.invoke('models:import-local', args),
   detectWorkspaceModels: () => ipcRenderer.invoke('models:detect-workspace-models'),
   inspectModelFile: (filePath) => ipcRenderer.invoke('models:inspect-file', filePath),
-  switchActiveModel: (modelId, filePath) => ipcRenderer.invoke('models:switch', { modelId, filePath }),
+  checkModelPreflight: (args) => ipcRenderer.invoke('models:preflight', args),
+  switchActiveModel: (modelId, filePath, options = {}) => ipcRenderer.invoke('models:switch', { modelId, filePath, ...options }),
   repairModelPath: (modelId, newPath) => ipcRenderer.invoke('models:repair-path', { modelId, newPath }),
   unregisterModel: (modelId) => ipcRenderer.invoke('models:unregister', modelId),
   searchModelCatalog: (query) => ipcRenderer.invoke('models:search-catalog', query),
@@ -51,7 +52,7 @@ contextBridge.exposeInMainWorld('astroApi', {
 
   // Inference & Chat
   getActiveModel: () => ipcRenderer.invoke('inference:active-model'),
-  loadModel: (modelId, filePath) => ipcRenderer.invoke('inference:load', modelId, filePath),
+  loadModel: (modelId, filePath, options = {}) => ipcRenderer.invoke('inference:load', modelId, filePath, options),
   unloadModel: () => ipcRenderer.invoke('inference:unload'),
   sendMessage: (args) => ipcRenderer.invoke('chat:send', args),
   stopGeneration: () => ipcRenderer.invoke('chat:stop'),

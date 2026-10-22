@@ -78,11 +78,37 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: true
     }
   });
 
   mainWindow.loadFile(path.join(__dirname, 'ui', 'index.html'));
+
+  // Security Hardening: Navigation restrictions (Prevent arbitrary navigation away from local app)
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    try {
+      const parsed = new URL(navigationUrl);
+      if (parsed.protocol !== 'file:') {
+        event.preventDefault();
+        shell.openExternal(navigationUrl);
+      }
+    } catch (e) {
+      event.preventDefault();
+    }
+  });
+
+  // Security Hardening: Block new window popups and open external links in default OS browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  // Security Hardening: Prevent webview tag attachment
+  mainWindow.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault();
+  });
 
   // Forward download progress events to renderer
   downloadManager.on('progress', (data) => {
@@ -108,6 +134,18 @@ function createWindow() {
 
 // App lifecycle
 app.whenReady().then(async () => {
+  const { session } = require('electron');
+  if (session && session.defaultSession) {
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+      // Only allow media (audio) for optional local speech input
+      if (permission === 'media') {
+        return callback(true);
+      }
+      // Strictly deny all other web permissions (geolocation, camera, notifications, etc.)
+      callback(false);
+    });
+  }
+
   storageService.ensureDirectories();
 
   // Auto-detect and register pre-placed models in workspace, managed dir, or portable dir (e.g. Qwen3-8B-Q4_K_M.gguf)
@@ -116,7 +154,6 @@ app.whenReady().then(async () => {
       path.join(storageService.paths.models, 'Qwen3-8B-Q4_K_M.gguf'),
       path.join(process.cwd(), 'Qwen3-8B-Q4_K_M.gguf'),
       path.join(path.dirname(process.execPath), 'Qwen3-8B-Q4_K_M.gguf'),
-      'c:\\aditya\\ASTRO\\Qwen3-8B-Q4_K_M.gguf',
       path.join(require('os').homedir(), 'Downloads', 'Qwen3-8B-Q4_K_M.gguf')
     ];
 
@@ -342,8 +379,7 @@ ipcMain.handle('models:detect-workspace-models', async () => {
     path.dirname(process.execPath),
     storageService.paths.base,
     storageService.paths.models,
-    path.join(require('os').homedir(), 'Downloads'),
-    'c:\\aditya\\ASTRO'
+    path.join(require('os').homedir(), 'Downloads')
   ];
   const seenPaths = new Set();
 
@@ -450,20 +486,24 @@ ipcMain.handle('models:inspect-file', async (event, filePath) => {
   };
 });
 
-ipcMain.handle('models:switch', async (event, { modelId, filePath }) => {
+ipcMain.handle('models:switch', async (event, { modelId, filePath, overrideMemorySafety, contextWindow }) => {
   const task = activityService.createTask({
     type: 'model-switch',
     label: `Switching to ${modelId}`,
     details: 'Unloading current model and allocating new model context'
   });
   try {
-    const res = await inferenceManager.switchModel(modelId, filePath);
+    const res = await inferenceManager.switchModel(modelId, filePath, { overrideMemorySafety, contextWindow });
     activityService.completeTask(task.id, `Switched to ${modelId}`);
     return res;
   } catch (err) {
     activityService.failTask(task.id, err.message);
     throw err;
   }
+});
+
+ipcMain.handle('models:preflight', async (event, args) => {
+  return inferenceManager.preflightModelCheck(args || {});
 });
 
 ipcMain.handle('models:repair-path', async (event, { modelId, newPath }) => {
@@ -556,14 +596,14 @@ ipcMain.handle('inference:active-model', async () => {
   return inferenceManager.getLoadedModelInfo();
 });
 
-ipcMain.handle('inference:load', async (event, modelId, filePath) => {
+ipcMain.handle('inference:load', async (event, modelId, filePath, options) => {
   const task = activityService.createTask({
     type: 'model-load',
     label: `Loading ${modelId}`,
     details: 'Allocating context in system memory'
   });
   try {
-    const res = await inferenceManager.loadModel(modelId, filePath);
+    const res = await inferenceManager.loadModel(modelId, filePath, options || {});
     activityService.completeTask(task.id, `Loaded in ${res.loadTimeMs}ms`);
     return res;
   } catch (err) {

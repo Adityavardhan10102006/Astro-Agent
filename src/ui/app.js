@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- State ---
   let currentScreen = 'home-screen';
   let activeModel = null;
-  let currentWorkspaceDir = 'c:\\aditya\\ASTRO';
+  let currentWorkspaceDir = '';
   let currentSettings = null;
   let activeConversationId = null;
   let activeSelectedFile = null;
@@ -25,9 +25,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Topbar & Bottombar Badges
   const topbarOfflineBadge = document.getElementById('topbar-offline-badge');
   const topbarOfflineText = document.getElementById('topbar-offline-text');
+  const topbarModelBadge = document.getElementById('topbar-model-badge');
   const topbarModelText = document.getElementById('topbar-model-text');
   const topbarModelDot = document.getElementById('topbar-model-dot');
   const topbarHwText = document.getElementById('topbar-hw-text');
+  const topbarScreenTitle = document.getElementById('topbar-screen-title');
 
   const bottomOfflineText = document.getElementById('bottom-offline-text');
   const bottomModelText = document.getElementById('bottom-model-text');
@@ -35,7 +37,57 @@ document.addEventListener('DOMContentLoaded', async () => {
   const bottomActivityText = document.getElementById('bottom-activity-text');
   const bottomActivityLink = document.getElementById('bottom-activity-link');
 
+  // --- Toast Notification Utility ---
+  function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast-message ${type}`;
+    const icon = type === 'success' ? '✓' : type === 'warning' ? '⚠️' : type === 'danger' ? '✕' : 'ℹ️';
+    toast.innerHTML = `<span style="font-weight: 700; font-size: 11px;">${icon}</span><span>${escapeHtml(message)}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(6px)';
+      setTimeout(() => toast.remove(), 260);
+    }, 3000);
+  }
+  window.showToast = showToast;
+
+  // --- Copy Code Block Utility ---
+  window.copyCodeBlock = (btn) => {
+    const wrapper = btn.closest('.code-block-wrapper');
+    if (wrapper) {
+      const codeEl = wrapper.querySelector('code');
+      if (codeEl) {
+        navigator.clipboard.writeText(codeEl.innerText || codeEl.textContent);
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied';
+        btn.style.color = 'var(--accent-success)';
+        showToast('Code copied to clipboard', 'success');
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.color = '';
+        }, 2000);
+      }
+    }
+  };
+
   // --- Navigation & Sidebar Logic ---
+  const screenTitleMap = {
+    'home-screen': '🏠 Home',
+    'chat-screen': '💬 Chat',
+    'files-screen': '📁 Files',
+    'rag-screen': '📚 Knowledge & RAG',
+    'research-screen': '🔍 Research',
+    'studio-screen': '🛠️ Coding Studio',
+    'models-screen': '⚡ Model Manager',
+    'voice-screen': '🎙️ Voice',
+    'activity-screen': '⏱️ Activity',
+    'settings-screen': '⚙️ Settings'
+  };
+
   function navigateTo(screenId) {
     navItems.forEach(n => {
       if (n.getAttribute('data-screen') === screenId) {
@@ -55,6 +107,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     currentScreen = screenId;
 
+    if (topbarScreenTitle && screenTitleMap[screenId]) {
+      topbarScreenTitle.textContent = screenTitleMap[screenId];
+    }
+
     // Screen specific refresh
     if (screenId === 'home-screen') refreshHomeView();
     if (screenId === 'chat-screen') refreshChatView();
@@ -65,6 +121,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (screenId === 'voice-screen') refreshVoiceView();
     if (screenId === 'activity-screen') refreshActivityView();
     if (screenId === 'settings-screen') refreshSettingsView();
+  }
+  window.navigateTo = navigateTo;
+
+  if (topbarModelBadge) {
+    topbarModelBadge.addEventListener('click', openModelSwitcherModal);
   }
 
   navItems.forEach(item => {
@@ -132,7 +193,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function refreshActiveModel() {
     activeModel = await api.getActiveModel();
     const chatActivePill = document.getElementById('chat-active-model-pill');
+    const homeNoModelBanner = document.getElementById('home-no-model-banner');
+
     if (activeModel) {
+      if (homeNoModelBanner) homeNoModelBanner.style.display = 'none';
       topbarModelDot.className = 'dot active';
       topbarModelText.textContent = `${activeModel.modelId} (Active)`;
       bottomModelDot.className = 'dot active';
@@ -142,6 +206,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         chatActivePill.style.color = 'var(--accent-success)';
       }
     } else {
+      if (homeNoModelBanner) homeNoModelBanner.style.display = 'flex';
       topbarModelDot.className = 'dot';
       topbarModelText.textContent = 'No Model Loaded';
       bottomModelDot.className = 'dot';
@@ -185,9 +250,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     navigateTo('chat-screen');
     const chatInput = document.getElementById('chat-input-text');
     chatInput.value = text;
-    document.getElementById('chat-rag-checkbox').checked = homeRagToggle.checked;
+    const chatRagCheck = document.getElementById('chat-rag-checkbox');
+    if (chatRagCheck) chatRagCheck.checked = homeRagToggle.checked;
+    const chatModeSelect = document.getElementById('chat-mode-select');
+    if (chatModeSelect) chatModeSelect.value = homeRagToggle.checked ? 'local-files' : 'general-assistant';
     document.getElementById('btn-chat-send').click();
   });
+
+  if (homePromptInput) {
+    homePromptInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        homePromptSend.click();
+      }
+    });
+  }
 
   homeMicBtn.addEventListener('click', () => {
     navigateTo('voice-screen');
@@ -197,7 +274,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('qa-ask-rag').addEventListener('click', () => navigateTo('rag-screen'));
   document.getElementById('qa-start-coding').addEventListener('click', () => navigateTo('studio-screen'));
   document.getElementById('qa-research').addEventListener('click', () => navigateTo('research-screen'));
-  document.getElementById('home-btn-manage-models').addEventListener('click', () => navigateTo('models-screen'));
+  const btnHomeManageModels = document.getElementById('home-btn-manage-models');
+  if (btnHomeManageModels) {
+    btnHomeManageModels.addEventListener('click', () => navigateTo('models-screen'));
+  }
+
+  const homeBtnImportGguf = document.getElementById('home-btn-import-gguf');
+  if (homeBtnImportGguf) {
+    homeBtnImportGguf.addEventListener('click', () => window.triggerImportModelPicker());
+  }
+
+  const homeBtnSwitchModel = document.getElementById('home-btn-switch-model');
+  if (homeBtnSwitchModel) {
+    homeBtnSwitchModel.addEventListener('click', openModelSwitcherModal);
+  }
 
   async function refreshHomeView() {
     await refreshActiveModel();
@@ -375,6 +465,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
 
+  function renderMarkdown(text) {
+    if (!text) return '';
+    let escaped = escapeHtml(text);
+
+    // Fenced code blocks with language badge and Copy Code button
+    escaped = escaped.replace(/```(\w+)?\r?\n([\s\S]*?)```/g, (match, lang, code) => {
+      const langLabel = lang ? lang.trim() : 'code';
+      return `<div class="code-block-wrapper"><div class="code-block-header"><span>${langLabel}</span><button class="code-copy-btn" onclick="window.copyCodeBlock(this)">Copy Code</button></div><pre><code>${code.trim()}</code></pre></div>`;
+    });
+
+    // Inline code
+    escaped = escaped.replace(/`([^`\n]+)`/g, '<code style="background: var(--bg-input); padding: 1px 5px; border-radius: 4px; font-family: var(--font-mono); font-size: 11.5px; border: 1px solid var(--border-subtle);">$1</code>');
+
+    // Bold text
+    escaped = escaped.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+
+    return escaped;
+  }
+
   // Safe message formatting: parses <think> blocks into collapsible sections and escapes all raw text
   function formatMessageContent(rawText) {
     if (!rawText || typeof rawText !== 'string' || rawText.trim() === '') {
@@ -389,7 +498,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       while ((match = thinkRegex.exec(rawText)) !== null) {
         const textBefore = rawText.slice(cursor, match.index);
         if (textBefore) {
-          outputHtml += `<div style="white-space: pre-wrap;">${escapeHtml(textBefore)}</div>`;
+          outputHtml += `<div style="white-space: pre-wrap;">${renderMarkdown(textBefore)}</div>`;
         }
         const thinkBody = match[1] ? match[1].trim() : '';
         if (thinkBody) {
@@ -399,13 +508,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       const textAfter = rawText.slice(cursor);
       if (textAfter) {
-        outputHtml += `<div style="white-space: pre-wrap;">${escapeHtml(textAfter)}</div>`;
+        outputHtml += `<div style="white-space: pre-wrap;">${renderMarkdown(textAfter)}</div>`;
       }
       return outputHtml || escapeHtml(rawText);
     }
 
-    return `<div style="white-space: pre-wrap;">${escapeHtml(rawText)}</div>`;
+    return `<div style="white-space: pre-wrap;">${renderMarkdown(rawText)}</div>`;
   }
+  window.formatMessageContent = formatMessageContent;
 
   window.confirmDesktopAction = async (requestId) => {
     try {
@@ -514,13 +624,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   async function sendChatMessage(textOverride = null, isVoice = false) {
-    const text = (textOverride !== null ? textOverride : chatInputText.value).trim();
+    const text = (typeof textOverride === 'string' ? textOverride : (chatInputText ? chatInputText.value : '')).trim();
     if (!text) return;
 
     const isModelCommand = /^(?:please\s+)?(?:show|list|import|add|switch|change|use|activate|find|search|download|i want to use|installed\s+models|my\s+models)/i.test(text);
 
     if (!activeModel && !isModelCommand) {
-      alert('AI Engine Notice: No local model is currently loaded. Please navigate to 07 Model Manager to load a model (e.g. Qwen3-8B) or type "Import a model" or "List models" in chat.');
+      // Append user message bubble first
+      const userRow = document.createElement('div');
+      userRow.className = 'msg-row user';
+      userRow.innerHTML = `<div class="msg-bubble">${isVoice ? '🎙️ ' : ''}${escapeHtml(text)}</div>`;
+      chatMessagesScroll.appendChild(userRow);
+      if (textOverride === null) {
+        chatInputText.value = '';
+      }
+
+      // Append assistant guidance bubble with actionable chips
+      const asstRow = document.createElement('div');
+      asstRow.className = 'msg-row assistant';
+      const bubble = document.createElement('div');
+      bubble.className = 'msg-bubble';
+      bubble.innerHTML = `<strong>⚠️ No Local Model Loaded</strong><br><br>ASTRO operates 100% offline and requires a local model in memory to generate responses.<br><br>
+        To get started:
+        <ul style="margin: 6px 0 10px 18px; padding: 0;">
+          <li>Load a model in <strong>Model Manager</strong></li>
+          <li>Or import an existing <code>.gguf</code> model from your drive</li>
+        </ul>
+        <div class="prompt-suggestion-chips" style="margin-top: 8px;">
+          <span class="prompt-chip" data-prompt="List models">⚡ List Models</span>
+          <span class="prompt-chip" data-prompt="Import a local model">📥 Import Local GGUF</span>
+        </div>`;
+      asstRow.appendChild(bubble);
+      chatMessagesScroll.appendChild(asstRow);
+      chatMessagesScroll.scrollTop = chatMessagesScroll.scrollHeight;
       return;
     }
 
@@ -728,7 +864,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  btnChatSend.addEventListener('click', sendChatMessage);
+  btnChatSend.addEventListener('click', () => sendChatMessage());
   chatInputText.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -747,10 +883,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     chatActiveTitle.textContent = 'New Conversation';
     chatMessagesScroll.innerHTML = `
       <div class="msg-row assistant">
-        <div class="msg-bubble">New conversation started. Ask a question or explore documents.</div>
+        <div class="msg-bubble">
+          <strong>New conversation started.</strong><br>
+          Ask a question, query local documents, or manage models.
+          <div class="prompt-suggestion-chips">
+            <span class="prompt-chip" data-prompt="What models are currently registered?">⚡ Check Models</span>
+            <span class="prompt-chip" data-prompt="Explain neural network quantization (Q4_K_M vs Q8_0)">🧠 Explain Quantization</span>
+            <span class="prompt-chip" data-prompt="Search local documents for project architecture">📚 Search Knowledge</span>
+          </div>
+        </div>
       </div>
     `;
     refreshConversationsList();
+  });
+
+  document.addEventListener('click', (e) => {
+    const chip = e.target.closest('.prompt-chip');
+    if (chip) {
+      const promptText = chip.getAttribute('data-prompt');
+      if (promptText && chatInputText) {
+        chatInputText.value = promptText;
+        chatInputText.focus();
+      }
+    }
   });
 
   btnChatRename.addEventListener('click', async () => {
@@ -776,6 +931,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let pendingInspectData = null;
 
   async function openModelInspectModal(filePath) {
+    window.openModelInspectModal = openModelInspectModal;
     const modal = document.getElementById('modal-model-inspect');
     const loading = document.getElementById('inspect-loading');
     const details = document.getElementById('inspect-details');
@@ -873,6 +1029,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function openModelSwitcherModal() {
+    window.openModelSwitcherModal = openModelSwitcherModal;
     const modal = document.getElementById('modal-model-switcher');
     const list = document.getElementById('modal-models-list');
     if (!modal || !list) return;
@@ -962,10 +1119,45 @@ document.addEventListener('DOMContentLoaded', async () => {
       const modal = document.getElementById('modal-model-switcher');
       if (modal) modal.style.display = 'none';
 
+      const options = {};
+      if (api.checkModelPreflight && filePath) {
+        try {
+          const preflight = await api.checkModelPreflight({ modelId, filePath });
+          if (preflight && preflight.severity === 'critical_insufficient') {
+            const altText = (preflight.safeAlternatives || []).map(a => `  • ${a.label}`).join('\n');
+            const confirmed = confirm(
+              `[CRITICAL MEMORY RISK]\n\n` +
+              `${preflight.message}\n\n` +
+              `Recommended Action: ${preflight.recommendedAction}\n\n` +
+              (altText ? `Safe Alternatives:\n${altText}\n\n` : '') +
+              `Do you want to override this safeguard and attempt to load anyway?`
+            );
+            if (!confirmed) {
+              await refreshActiveModel();
+              return;
+            }
+            options.overrideMemorySafety = true;
+          } else if (preflight && preflight.severity === 'warning_paging') {
+            const confirmed = confirm(
+              `[MEMORY PAGING WARNING]\n\n` +
+              `${preflight.message}\n\n` +
+              `Recommended Action: ${preflight.recommendedAction}\n\n` +
+              `Do you want to proceed?`
+            );
+            if (!confirmed) {
+              await refreshActiveModel();
+              return;
+            }
+          }
+        } catch (err) {
+          console.warn('Preflight check error:', err);
+        }
+      }
+
       const pill = document.getElementById('chat-active-model-pill');
       if (pill) pill.textContent = `⏳ Switching to ${modelId}...`;
 
-      const result = await api.switchActiveModel(modelId, filePath);
+      const result = await api.switchActiveModel(modelId, filePath, options);
       await refreshActiveModel();
       refreshModelsView();
       alert(`Successfully switched active model to "${result.displayName || modelId}"!\nInference engine is ready in chat.`);
@@ -1620,7 +1812,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnStudioCloseProject.addEventListener('click', async () => {
       await api.closeProject();
       activeProjectMeta = null;
-      currentWorkspaceDir = process.cwd();
+      currentWorkspaceDir = '';
       studioProjectName.textContent = 'No Active Project';
       studioProjectName.style.borderColor = 'var(--border-subtle)';
       studioProjectBadges.innerHTML = '';
@@ -1632,7 +1824,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function refreshStudioView() {
-    const targetDir = currentWorkspaceDir || process.cwd();
+    const targetDir = currentWorkspaceDir;
+    if (!targetDir) {
+      studioTreeList.innerHTML = '<div style="color: var(--text-muted); font-size: 11.5px; padding: 10px 0;">Open a project folder to inspect files.</div>';
+      return;
+    }
     const query = studioTreeSearch ? studioTreeSearch.value.trim() : '';
 
     if (query) {
@@ -2089,7 +2285,36 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   window.triggerLoadModel = async (modelId, pathStr) => {
     try {
-      activeModel = await api.loadModel(modelId, pathStr);
+      const options = {};
+      if (api.checkModelPreflight && pathStr) {
+        try {
+          const preflight = await api.checkModelPreflight({ modelId, filePath: pathStr });
+          if (preflight && preflight.severity === 'critical_insufficient') {
+            const altText = (preflight.safeAlternatives || []).map(a => `  • ${a.label}`).join('\n');
+            const confirmed = confirm(
+              `[CRITICAL MEMORY RISK]\n\n` +
+              `${preflight.message}\n\n` +
+              `Recommended Action: ${preflight.recommendedAction}\n\n` +
+              (altText ? `Safe Alternatives:\n${altText}\n\n` : '') +
+              `Do you want to override this safeguard and attempt to load anyway?`
+            );
+            if (!confirmed) return;
+            options.overrideMemorySafety = true;
+          } else if (preflight && preflight.severity === 'warning_paging') {
+            const confirmed = confirm(
+              `[MEMORY PAGING WARNING]\n\n` +
+              `${preflight.message}\n\n` +
+              `Recommended Action: ${preflight.recommendedAction}\n\n` +
+              `Do you want to proceed?`
+            );
+            if (!confirmed) return;
+          }
+        } catch (err) {
+          console.warn('Preflight check error:', err);
+        }
+      }
+
+      activeModel = await api.loadModel(modelId, pathStr, options);
       await refreshActiveModel();
       refreshModelsView();
       alert(`Model ${modelId} loaded into memory! Health check passed. You can now generate responses in 02 Chat.`);
@@ -2440,13 +2665,27 @@ Active Model     : ${activeModel ? activeModel.modelId : 'None Loaded'}
     } else {
       sidebar.classList.remove('collapsed');
     }
-    alert('Settings saved and applied successfully.');
+    showToast('Settings saved and applied successfully.', 'success');
+  });
+
+  // Global keyboard accessibility: Escape closes open modals
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const inspectModal = document.getElementById('modal-model-inspect');
+      const switcherModal = document.getElementById('modal-model-switcher');
+      if (inspectModal && inspectModal.style.display === 'flex') {
+        inspectModal.style.display = 'none';
+      }
+      if (switcherModal && switcherModal.style.display === 'flex') {
+        switcherModal.style.display = 'none';
+      }
+    }
   });
 
   btnPrivacyDeleteData.addEventListener('click', async () => {
     if (confirm('Delete all local chat history permanently? This cannot be undone.')) {
       await api.clearAllUserData();
-      alert('Local conversation data deleted.');
+      showToast('Local conversation data deleted.', 'warning');
       refreshChatView();
     }
   });
@@ -2462,6 +2701,11 @@ Active Model     : ${activeModel ? activeModel.modelId : 'None Loaded'}
       "'": '&#039;'
     }[m]));
   }
+
+  window.openModelInspectModal = openModelInspectModal;
+  window.openModelSwitcherModal = openModelSwitcherModal;
+  window.navigateTo = navigateTo;
+  window.formatMessageContent = formatMessageContent;
 
   // Run initial load
   initApp();

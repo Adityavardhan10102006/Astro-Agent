@@ -17,7 +17,7 @@ const { InferenceManager } = require('../src/services/inference/inference-manage
 const { DownloadVerifier } = require('../src/services/models/download-verifier.js');
 
 describe('Phase 10: Independent Runtime Verification and Release Readiness', () => {
-  const modelPath = 'c:\\aditya\\ASTRO\\Qwen3-8B-Q4_K_M.gguf';
+  const modelPath = path.resolve(__dirname, '..', 'Qwen3-8B-Q4_K_M.gguf');
 
   it('1. Physical GGUF File Verification: Magic header, GGUF v3, size, and tensors', async () => {
     assert.strictEqual(fs.existsSync(modelPath), true, 'Model file must exist at root');

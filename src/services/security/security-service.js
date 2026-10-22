@@ -12,10 +12,13 @@ class SecurityService {
 
   isPathAllowed(targetPath) {
     if (!targetPath) return false;
+    const isWindows = process.platform === 'win32';
     const resolved = path.resolve(targetPath);
+    const targetNorm = isWindows ? resolved.toLowerCase() : resolved;
     return this.allowedRoots.some(root => {
       const resolvedRoot = path.resolve(root);
-      return resolved === resolvedRoot || resolved.startsWith(resolvedRoot + path.sep);
+      const rootNorm = isWindows ? resolvedRoot.toLowerCase() : resolvedRoot;
+      return targetNorm === rootNorm || targetNorm.startsWith(rootNorm + path.sep);
     });
   }
 

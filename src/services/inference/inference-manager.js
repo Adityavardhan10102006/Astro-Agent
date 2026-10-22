@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const EventEmitter = require('events');
 
 class InferenceManager extends EventEmitter {
@@ -27,6 +28,85 @@ class InferenceManager extends EventEmitter {
       engineType: this.loadedModel.engineType,
       status: this.status
     } : null;
+  }
+
+  preflightModelCheck({ modelId, filePath, contextWindow = 4096, simulatedMemory = null }) {
+    if (!filePath || !fs.existsSync(filePath)) {
+      return {
+        safe: false,
+        severity: 'critical_missing_file',
+        error: `Model file not found at path: ${filePath || modelId}`
+      };
+    }
+
+    const stat = fs.statSync(filePath);
+    const fileSizeBytes = stat.size;
+    const fileSizeGB = Number((fileSizeBytes / (1024 ** 3)).toFixed(2));
+
+    const specs = simulatedMemory || ((this.hardware && typeof this.hardware.detectSystemSpecs === 'function') ? this.hardware.detectSystemSpecs(true) : null) || {
+      memory: {
+        totalGB: Number((os.totalmem() / (1024 ** 3)).toFixed(2)),
+        freeGB: Number((os.freemem() / (1024 ** 3)).toFixed(2))
+      }
+    };
+
+    const totalRamGB = specs.memory.totalGB;
+    const freeRamGB = specs.memory.freeGB;
+
+    // Conservative estimation:
+    // 1. Model weights in memory: ~fileSizeGB
+    // 2. Context KV cache: ~0.5 GB per 4096 tokens
+    const effectiveContext = contextWindow || 4096;
+    const contextRamGB = Number(((effectiveContext / 4096) * 0.5).toFixed(2));
+    // 3. Runtime allocator & engine overhead: ~0.4 GB
+    const runtimeOverheadGB = 0.4;
+    const estimatedTotalRamGB = Number((fileSizeGB + contextRamGB + runtimeOverheadGB).toFixed(2));
+
+    // 4. Operating System headroom recommendation: at least 1.5 GB
+    const osHeadroomGB = 1.5;
+
+    let severity = 'safe'; // 'safe' | 'warning_paging' | 'critical_insufficient'
+    let message = `Model requires ~${estimatedTotalRamGB} GB RAM (Weights: ${fileSizeGB} GB + Context: ${contextRamGB} GB + Engine: ${runtimeOverheadGB} GB). System has ${freeRamGB} GB free out of ${totalRamGB} GB total.`;
+    let recommendedAction = 'Proceed with model loading.';
+    let safeAlternatives = [];
+
+    // Evaluate memory thresholds
+    // Insufficient physical capacity: Model alone requires more RAM than total physical RAM minus minimal OS footprint
+    if (estimatedTotalRamGB > (totalRamGB - 0.5)) {
+      severity = 'critical_insufficient';
+      message = `Insufficient physical RAM: Model requires ~${estimatedTotalRamGB} GB RAM, which exceeds available system capacity (${totalRamGB} GB total). Loading this model on an ${Math.round(totalRamGB)} GB device will cause severe system freezing or an Out-Of-Memory crash.`;
+      recommendedAction = 'Select a smaller compatible model (such as Qwen2.5-Coder-1.5B) or reduce context window.';
+      safeAlternatives = [
+        { modelId: 'qwen2.5-coder-1.5b-instruct', label: 'Qwen2.5-Coder-1.5B (Requires ~2.0 GB RAM)' },
+        { modelId: 'qwen2.5-coder-7b-instruct', label: 'Reduce context length to 2048 tokens' }
+      ];
+    } else if (estimatedTotalRamGB > freeRamGB) {
+      severity = 'warning_paging';
+      message = `Memory Paging Warning: Model requires ~${estimatedTotalRamGB} GB RAM, but currently available free RAM is only ${freeRamGB} GB (${totalRamGB} GB total). System will page inactive memory to disk, causing slower inference throughput.`;
+      recommendedAction = 'Close background applications before proceeding, or continue with disk paging.';
+      safeAlternatives = [
+        { modelId: 'qwen2.5-coder-1.5b-instruct', label: 'Qwen2.5-Coder-1.5B for fast loading without paging' }
+      ];
+    }
+
+    return {
+      safe: severity === 'safe',
+      severity,
+      modelId,
+      filePath,
+      fileSizeGB,
+      contextWindow: effectiveContext,
+      contextRamGB,
+      runtimeOverheadGB,
+      estimatedTotalRamGB,
+      totalRamGB,
+      freeRamGB,
+      osHeadroomGB,
+      message,
+      recommendedAction,
+      safeAlternatives,
+      canOverride: severity === 'critical_insufficient' || severity === 'warning_paging'
+    };
   }
 
   async unloadModel() {
@@ -101,12 +181,29 @@ class InferenceManager extends EventEmitter {
     this.emit('loading', { modelId, filePath });
 
     const startTime = Date.now();
-    const specs = this.hardware ? this.hardware.detectSystemSpecs() : { memory: { freeGB: 16 } };
+    const specs = (this.hardware && typeof this.hardware.detectSystemSpecs === 'function') ? this.hardware.detectSystemSpecs() : { memory: { freeGB: 16 } };
 
     const stat = fs.statSync(filePath);
     const modelSizeGB = Number((stat.size / (1024 ** 3)).toFixed(2));
-    if (specs.memory && specs.memory.freeGB < modelSizeGB) {
-      console.warn(`Memory Warning: Model size (${modelSizeGB} GB) exceeds available free RAM (${specs.memory.freeGB} GB). System will leverage CPU paging.`);
+
+    // Priority 3: Memory preflight safeguard check
+    const preflight = this.preflightModelCheck({
+      modelId,
+      filePath,
+      contextWindow: options.contextWindow || 4096,
+      simulatedMemory: options.simulatedMemory
+    });
+
+    if (preflight.severity === 'critical_insufficient' && !options.overrideMemorySafety && !options.allowMockFallback && !options.isTestMock && stat.size >= 1024 * 1024) {
+      if (this.lifecycle) {
+        try { this.lifecycle.transition(modelId, 'failed', preflight.message); } catch (e) {}
+      }
+      this.status = 'error';
+      throw new Error(`[Memory Preflight Block] ${preflight.message} To override this protection, confirm explicit user authorization.`);
+    }
+
+    if (preflight.severity === 'warning_paging') {
+      console.warn(`[Memory Preflight Notice] ${preflight.message}`);
     }
 
     let engine = null;

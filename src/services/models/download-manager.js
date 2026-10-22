@@ -287,7 +287,7 @@ class DownloadManager extends EventEmitter {
         const client = urlObj.protocol === 'https:' ? https : http;
 
         const headers = {
-          'User-Agent': 'ASTRO-Desktop-Assistant/0.2.0'
+          'User-Agent': 'ASTRO-Desktop-Assistant/0.1.0'
         };
 
         if (token) {

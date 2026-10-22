@@ -82,7 +82,7 @@ const APPROVED_MODELS = [
     contextLength: 32768,
     isDefault: false,
     hardwareRequirement: {
-      minRamGB: 8,
+      minRamGB: 12,
       recommendedRamGB: 16,
       minFreeDiskGB: 12,
       cpuTarget: 'x86_64 AVX2 (Ryzen 5 compatible)'
