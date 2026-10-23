@@ -6,3 +6,10 @@ dist/
 *.astro_bak*
 .DS_Store
 Thumbs.db
+
+# Models
+*.gguf
+
+# Build and release outputs
+dist-release/
+release/
