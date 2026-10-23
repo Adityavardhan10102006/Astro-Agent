@@ -17,7 +17,8 @@ const DEFAULT_SETTINGS = {
   appearance: {
     theme: 'dark', // 'dark' | 'light'
     fontSize: 'md', // 'sm' | 'md' | 'lg'
-    sidebarCollapsed: false
+    sidebarCollapsed: false,
+    showWelcomeOnStartup: true
   },
   privacy: {
     offlineOnly: true,

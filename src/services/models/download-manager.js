@@ -36,7 +36,51 @@ class DownloadManager extends EventEmitter {
   }
 
   getQueue() {
-    return [...this.downloadQueue];
+    return this.downloadQueue.map(q => {
+      const active = this.activeDownloads.get(q.filename);
+      if (active) {
+        return {
+          ...q,
+          modelId: active.modelId || q.modelId || null,
+          variantTag: active.variantTag || q.variantTag || null,
+          status: active.status || 'downloading',
+          phase: active.phase || 'downloading',
+          bytesDownloaded: active.bytesDownloaded || 0,
+          totalBytes: active.totalBytes || q.expectedSizeBytes || 0,
+          progressPercent: active.progressPercent || 0,
+          speedBytesPerSec: active.speedBytesPerSec || 0,
+          etaSeconds: active.etaSeconds || 0,
+          isIndeterminate: Boolean(active.isIndeterminate)
+        };
+      }
+      return { ...q };
+    });
+  }
+
+  getActiveDownload(filenameOrModelId) {
+    let active = this.activeDownloads.get(filenameOrModelId);
+    if (!active && filenameOrModelId) {
+      for (const item of this.activeDownloads.values()) {
+        if (item.modelId === filenameOrModelId || item.filename === filenameOrModelId) {
+          active = item;
+          break;
+        }
+      }
+    }
+    if (!active) return null;
+    return {
+      filename: active.filename,
+      modelId: active.modelId,
+      variantTag: active.variantTag,
+      status: active.status || 'downloading',
+      phase: active.phase || 'downloading',
+      bytesDownloaded: active.bytesDownloaded || 0,
+      totalBytes: active.totalBytes || 0,
+      progressPercent: active.progressPercent || 0,
+      speedBytesPerSec: active.speedBytesPerSec || 0,
+      etaSeconds: active.etaSeconds || 0,
+      isIndeterminate: Boolean(active.isIndeterminate)
+    };
   }
 
   getPartialPath(filename) {
@@ -107,6 +151,8 @@ class DownloadManager extends EventEmitter {
     const active = this.activeDownloads.get(filename);
     if (active) {
       active.cancelled = true;
+      active.status = 'paused';
+      active.phase = 'paused';
       if (active.fileStream) {
         try { active.fileStream.destroy(); } catch (e) {}
       }
@@ -143,6 +189,8 @@ class DownloadManager extends EventEmitter {
     const active = this.activeDownloads.get(filename);
     if (active) {
       active.cancelled = true;
+      active.status = 'cancelled';
+      active.phase = 'cancelled';
       if (active.fileStream) {
         try { active.fileStream.destroy(); } catch (e) {}
       }
@@ -158,9 +206,12 @@ class DownloadManager extends EventEmitter {
       this.activeDownloads.delete(filename);
     }
 
-    // Update queue
-    this.downloadQueue = this.downloadQueue.filter(q => q.filename !== filename);
-    this.saveQueue();
+    // Update queue status
+    const qItem = this.downloadQueue.find(q => q.filename === filename);
+    if (qItem) {
+      qItem.status = 'cancelled';
+      this.saveQueue();
+    }
 
     // Clean up partial meta
     const metaPath = this.getMetaPath(filename);
@@ -196,21 +247,40 @@ class DownloadManager extends EventEmitter {
     return this.downloadFile(qItem.url, qItem.filename, qItem.expectedSizeBytes, token);
   }
 
-  downloadFile(url, filename, expectedSizeBytes = null, token = null) {
+  downloadFile(url, filename, expectedSizeBytes = null, tokenOrOptions = null, modelId = null, variantTag = null) {
     return new Promise((resolve, reject) => {
-      // 1. Prevent duplicate active downloads
+      // 1. Resolve parameters (supports object or positional arguments)
+      let token = null;
+      let resolvedModelId = modelId;
+      let resolvedVariantTag = variantTag;
+
+      if (tokenOrOptions && typeof tokenOrOptions === 'object') {
+        token = tokenOrOptions.token || null;
+        resolvedModelId = resolvedModelId || tokenOrOptions.modelId || null;
+        resolvedVariantTag = resolvedVariantTag || tokenOrOptions.variantTag || null;
+      } else if (typeof tokenOrOptions === 'string') {
+        if (modelId && typeof modelId === 'string' && !tokenOrOptions.startsWith('hf_')) {
+          resolvedModelId = tokenOrOptions;
+          resolvedVariantTag = modelId;
+          token = null;
+        } else {
+          token = tokenOrOptions;
+        }
+      }
+
+      // 2. Prevent duplicate active downloads
       if (this.activeDownloads.has(filename)) {
         return reject(new Error(`Download is already active for ${filename}`));
       }
 
-      // 2. Security validation
+      // 3. Security validation
       try {
         this.validateHost(url);
       } catch (err) {
         return reject(err);
       }
 
-      // 3. Pre-flight disk space check
+      // 4. Pre-flight disk space check
       if (expectedSizeBytes) {
         try {
           this.checkDiskSpaceBeforeDownload(expectedSizeBytes);
@@ -222,21 +292,27 @@ class DownloadManager extends EventEmitter {
       this.storage.ensureDirectories();
       const partialPath = this.getPartialPath(filename);
 
-      // 4. Update or add queue entry
+      // 5. Update or add queue entry with modelId and variantTag
       let qItem = this.downloadQueue.find(q => q.filename === filename);
       if (!qItem) {
         qItem = {
           id: `dl_${filename}`,
           filename,
           url,
+          modelId: resolvedModelId,
+          variantTag: resolvedVariantTag,
           expectedSizeBytes,
-          status: 'downloading',
+          status: 'connecting',
+          phase: 'connecting',
           addedAt: new Date().toISOString(),
           error: null
         };
         this.downloadQueue.push(qItem);
       } else {
-        qItem.status = 'downloading';
+        if (resolvedModelId) qItem.modelId = resolvedModelId;
+        if (resolvedVariantTag) qItem.variantTag = resolvedVariantTag;
+        qItem.status = 'connecting';
+        qItem.phase = 'connecting';
         qItem.error = null;
       }
       this.saveQueue();
@@ -249,12 +325,17 @@ class DownloadManager extends EventEmitter {
 
       const state = {
         filename,
+        modelId: resolvedModelId,
+        variantTag: resolvedVariantTag,
         partialPath,
         bytesDownloaded: existingBytes,
         totalBytes: expectedSizeBytes || 0,
         speedBytesPerSec: 0,
         etaSeconds: 0,
         progressPercent: 0,
+        status: 'connecting',
+        phase: 'connecting',
+        isIndeterminate: !expectedSizeBytes || expectedSizeBytes <= 0,
         cancelled: false,
         req: null,
         res: null,
@@ -263,6 +344,7 @@ class DownloadManager extends EventEmitter {
       };
 
       this.activeDownloads.set(filename, state);
+      this.emit('progress', { ...state });
 
       const downloadAttempt = (currentUrl, redirectCount = 0) => {
         if (redirectCount > 8) {
@@ -311,24 +393,42 @@ class DownloadManager extends EventEmitter {
           let fileStream;
           let isResumed = false;
 
+          state.status = 'downloading';
+          state.phase = 'downloading';
+          qItem.status = 'downloading';
+          qItem.phase = 'downloading';
+
           if (res.statusCode === 206) {
             isResumed = true;
             fileStream = fs.createWriteStream(partialPath, { flags: 'a' });
             const contentRange = res.headers['content-range'];
             if (contentRange) {
               const match = contentRange.match(/\/(\d+)/);
-              if (match) state.totalBytes = parseInt(match[1], 10);
+              if (match) {
+                state.totalBytes = parseInt(match[1], 10);
+                state.isIndeterminate = false;
+              }
             }
           } else if (res.statusCode === 200) {
             existingBytes = 0;
             state.bytesDownloaded = 0;
             fileStream = fs.createWriteStream(partialPath, { flags: 'w' });
             const cl = res.headers['content-length'];
-            if (cl) state.totalBytes = parseInt(cl, 10);
+            if (cl) {
+              state.totalBytes = parseInt(cl, 10);
+              state.isIndeterminate = false;
+            } else if (expectedSizeBytes) {
+              state.totalBytes = expectedSizeBytes;
+              state.isIndeterminate = false;
+            } else {
+              state.totalBytes = 0;
+              state.isIndeterminate = true;
+            }
           } else if (res.statusCode === 416) {
             if (expectedSizeBytes && existingBytes === expectedSizeBytes) {
               this.activeDownloads.delete(filename);
               qItem.status = 'completed';
+              qItem.phase = 'completed';
               this.saveQueue();
               return resolve({ partialPath, totalBytes: existingBytes, resumed: true });
             } else {
@@ -340,6 +440,7 @@ class DownloadManager extends EventEmitter {
           } else {
             this.activeDownloads.delete(filename);
             qItem.status = 'failed';
+            qItem.phase = 'failed';
             qItem.error = `HTTP ${res.statusCode}: ${res.statusMessage}`;
             this.saveQueue();
             return reject(new Error(`Download failed with status ${res.statusCode}: ${res.statusMessage}`));
@@ -349,6 +450,7 @@ class DownloadManager extends EventEmitter {
 
           let lastSampleTime = Date.now();
           let lastSampleBytes = state.bytesDownloaded;
+          this.emit('progress', { ...state });
 
           res.on('data', (chunk) => {
             if (state.cancelled) {
@@ -361,13 +463,18 @@ class DownloadManager extends EventEmitter {
             const now = Date.now();
             const elapsed = (now - lastSampleTime) / 1000;
 
-            if (elapsed >= 0.4) {
+            if (elapsed >= 0.25) {
               const bytesDiff = state.bytesDownloaded - lastSampleBytes;
               state.speedBytesPerSec = Math.round(bytesDiff / elapsed);
               if (state.totalBytes > 0) {
                 state.progressPercent = Math.min(100, Number(((state.bytesDownloaded / state.totalBytes) * 100).toFixed(1)));
                 const remaining = state.totalBytes - state.bytesDownloaded;
                 state.etaSeconds = state.speedBytesPerSec > 0 ? Math.round(remaining / state.speedBytesPerSec) : 0;
+                state.isIndeterminate = false;
+              } else {
+                state.progressPercent = 0;
+                state.etaSeconds = 0;
+                state.isIndeterminate = true;
               }
               lastSampleTime = now;
               lastSampleBytes = state.bytesDownloaded;
@@ -383,9 +490,14 @@ class DownloadManager extends EventEmitter {
             if (state.cancelled) {
               return reject(new Error('Download cancelled by user'));
             }
+            state.status = 'completed';
+            state.phase = 'completed';
+            state.progressPercent = 100;
             this.activeDownloads.delete(filename);
             qItem.status = 'completed';
+            qItem.phase = 'completed';
             this.saveQueue();
+            this.emit('progress', { ...state });
             this.emit('completed', { filename, partialPath, totalBytes: state.bytesDownloaded });
             resolve({ partialPath, totalBytes: state.bytesDownloaded, filename });
           });
@@ -393,6 +505,7 @@ class DownloadManager extends EventEmitter {
           fileStream.on('error', (err) => {
             this.activeDownloads.delete(filename);
             qItem.status = 'failed';
+            qItem.phase = 'failed';
             qItem.error = err.message;
             this.saveQueue();
             reject(err);
@@ -405,6 +518,7 @@ class DownloadManager extends EventEmitter {
           }
           this.activeDownloads.delete(filename);
           qItem.status = 'failed';
+          qItem.phase = 'failed';
           qItem.error = err.message;
           this.saveQueue();
           reject(err);

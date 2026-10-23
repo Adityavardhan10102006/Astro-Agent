@@ -13,16 +13,28 @@
   <header class="topbar">
     <div class="topbar-brand">
       <button class="btn-sidebar-toggle" id="btn-toggle-sidebar" title="Toggle Navigation Sidebar" aria-label="Toggle Sidebar">☰</button>
-      <img src="assets/icon.png" alt="ASTRO Logo" style="width: 22px; height: 22px; border-radius: 5px; vertical-align: middle; margin-right: 4px;">
+      <img src="assets/logo.png" alt="ASTRO Logo" class="topbar-brand-logo">
       <span class="brand-title">ASTRO</span>
-      <span class="topbar-screen-pill" id="topbar-screen-title">🏠 Home</span>
+      <span class="topbar-screen-pill" id="topbar-screen-title">💬 Chat</span>
+    </div>
+
+    <!-- Dual-Workspace Switcher -->
+    <div class="topbar-workspaces">
+      <button class="workspace-tab-btn active" id="btn-ws-chat" data-screen="chat-screen" title="AI Chat Workspace">
+        <span>💬</span>
+        <span>AI Chat</span>
+      </button>
+      <button class="workspace-tab-btn" id="btn-ws-studio" data-screen="studio-screen" title="Coding Studio (VS Code Layout)">
+        <span>💻</span>
+        <span>Coding Studio</span>
+      </button>
     </div>
 
     <div class="topbar-indicators">
-      <span class="status-badge" id="topbar-offline-badge" title="Network Boundary Status">
-        <span class="dot offline"></span>
-        <span id="topbar-offline-text">OFFLINE</span>
-      </span>
+      <div class="status-badge clickable" id="topbar-offline-badge" title="Network & Privacy Boundary (Click to inspect)">
+        <span class="dot offline" id="topbar-offline-dot"></span>
+        <span id="topbar-offline-text">Offline-First Privacy</span>
+      </div>
       <div class="status-badge clickable" id="topbar-model-badge" title="Active Model (Click to Switch or Import)">
         <span class="dot" id="topbar-model-dot"></span>
         <span id="topbar-model-text">No Model Loaded</span>
@@ -38,46 +50,46 @@
   <div class="app-body">
     <!-- Persistent Left Sidebar with Grouped Navigation -->
     <nav class="sidebar" id="app-sidebar" aria-label="Main Navigation">
-      <div class="nav-group-title">Workspace</div>
-      <div class="nav-item active" data-screen="home-screen" tabindex="0" role="button" aria-label="Home Dashboard">
-        <span class="nav-icon">🏠</span>
-        <span class="nav-text">Home</span>
-      </div>
-      <div class="nav-item" data-screen="chat-screen" tabindex="0" role="button" aria-label="Chat Workspace">
+      <div class="nav-group-title">Workspaces</div>
+      <div class="nav-item active" data-screen="chat-screen" tabindex="0" role="button" aria-label="Chat Workspace">
         <span class="nav-icon">💬</span>
-        <span class="nav-text">Chat</span>
-      </div>
-
-      <div class="nav-group-title">Knowledge &amp; Code</div>
-      <div class="nav-item" data-screen="files-screen" tabindex="0" role="button" aria-label="File Intelligence">
-        <span class="nav-icon">📁</span>
-        <span class="nav-text">Files</span>
-      </div>
-      <div class="nav-item" data-screen="rag-screen" tabindex="0" role="button" aria-label="Knowledge & RAG">
-        <span class="nav-icon">📚</span>
-        <span class="nav-text">Knowledge &amp; RAG</span>
-      </div>
-      <div class="nav-item" data-screen="research-screen" tabindex="0" role="button" aria-label="Research Workspace">
-        <span class="nav-icon">🔍</span>
-        <span class="nav-text">Research</span>
+        <span class="nav-text">AI Chat</span>
       </div>
       <div class="nav-item" data-screen="studio-screen" tabindex="0" role="button" aria-label="Coding Studio">
         <span class="nav-icon">🛠️</span>
         <span class="nav-text">Coding Studio</span>
       </div>
+      <div class="nav-item" data-screen="home-screen" tabindex="0" role="button" aria-label="Welcome & Overview">
+        <span class="nav-icon">🏠</span>
+        <span class="nav-text">Welcome</span>
+      </div>
 
-      <div class="nav-group-title">System</div>
+      <div class="nav-group-title">Knowledge &amp; Retrieval</div>
+      <div class="nav-item" data-screen="rag-screen" tabindex="0" role="button" aria-label="Knowledge & RAG">
+        <span class="nav-icon">📚</span>
+        <span class="nav-text">Knowledge &amp; RAG</span>
+      </div>
+      <div class="nav-item" data-screen="files-screen" tabindex="0" role="button" aria-label="File Intelligence">
+        <span class="nav-icon">📁</span>
+        <span class="nav-text">Local Files</span>
+      </div>
+      <div class="nav-item" data-screen="research-screen" tabindex="0" role="button" aria-label="Research Workspace">
+        <span class="nav-icon">🔍</span>
+        <span class="nav-text">Research</span>
+      </div>
+
+      <div class="nav-group-title">System &amp; Engine</div>
       <div class="nav-item" data-screen="models-screen" tabindex="0" role="button" aria-label="Model Manager">
         <span class="nav-icon">⚡</span>
         <span class="nav-text">Model Manager</span>
       </div>
-      <div class="nav-item" data-screen="voice-screen" tabindex="0" role="button" aria-label="Voice Interaction">
-        <span class="nav-icon">🎙️</span>
-        <span class="nav-text">Voice</span>
-      </div>
       <div class="nav-item" data-screen="activity-screen" tabindex="0" role="button" aria-label="Activity & Background Tasks">
         <span class="nav-icon">⏱️</span>
         <span class="nav-text">Activity</span>
+      </div>
+      <div class="nav-item" data-screen="voice-screen" tabindex="0" role="button" aria-label="Voice Interaction">
+        <span class="nav-icon">🎙️</span>
+        <span class="nav-text">Voice</span>
       </div>
       <div class="nav-item" data-screen="settings-screen" tabindex="0" role="button" aria-label="Settings & Diagnostics">
         <span class="nav-icon">⚙️</span>
@@ -88,12 +100,162 @@
     <!-- Main Content Area -->
     <main class="content-area">
 
-      <!-- ================= 01: HOME SCREEN ================= -->
+      <!-- ================= 01: WELCOME SCREEN ================= -->
       <section class="screen active" id="home-screen">
         <div class="home-layout">
-          <div class="home-hero">
-            <h1 class="home-title">ASTRO Assistant</h1>
-            <p class="home-subtitle">Private, offline-first intelligence running locally on your laptop.</p>
+          <!-- ASTRO Animated Hero (Adapted from PrismaHero specification for desktop workspace) -->
+          <div class="home-hero astro-animated-hero" id="home-animated-hero">
+            <!-- Offline noise overlay texture -->
+            <div class="hero-noise-overlay" aria-hidden="true"></div>
+
+            <!-- Top Pill Bar & Status -->
+            <div class="hero-top-strip">
+              <div class="hero-badge-pill" title="Security & Network Isolation">
+                <span class="hero-status-dot"></span>
+                <span>Offline-First • Private AI</span>
+              </div>
+              <!-- Fast Navigation Pill Menu -->
+              <nav class="hero-nav-pill-menu" aria-label="Quick Navigation">
+                <button type="button" class="hero-nav-pill-btn" id="hero-nav-chat" title="Switch to AI Chat">💬 Chat</button>
+                <button type="button" class="hero-nav-pill-btn" id="hero-nav-studio" title="Switch to Coding Studio">🛠️ Coding</button>
+                <button type="button" class="hero-nav-pill-btn" id="hero-nav-models" title="Open Model Manager">⚡ Models</button>
+                <button type="button" class="hero-nav-pill-btn" id="hero-nav-settings" title="Open Settings">⚙️ Settings</button>
+              </nav>
+            </div>
+
+            <!-- ASTRO Hero Brand Logo Emblem (Cybernetic Gold AI Emblem) -->
+            <div class="hero-logo-wrap pull-up-word" style="--delay: 0.02s">
+              <img src="assets/logo.png" alt="ASTRO AI Emblem" class="hero-brand-logo" id="hero-brand-logo">
+            </div>
+
+            <!-- Massive Wordmark with WordsPullUp Animation -->
+            <div class="hero-brand-wrap">
+              <h1 class="hero-brand-title home-title" aria-label="ASTRO">
+                <span class="pull-up-word" style="--delay: 0.05s">A</span>
+                <span class="pull-up-word" style="--delay: 0.10s">S</span>
+                <span class="pull-up-word" style="--delay: 0.15s">T</span>
+                <span class="pull-up-word" style="--delay: 0.20s">R</span>
+                <span class="pull-up-word" style="--delay: 0.25s">O</span>
+              </h1>
+              <span class="hero-version-tag" title="Local Engine">v0.1 · Offline</span>
+            </div>
+
+            <!-- Multi-styled Tagline with Pull-up Staggering -->
+            <div class="hero-tagline-multistyle home-subtitle">
+              <span class="pull-up-word hero-tagline-main" style="--delay: 0.32s">Private, local intelligence</span>
+              <span class="pull-up-word hero-tagline-accent" style="--delay: 0.40s">engineered for your laptop.</span>
+            </div>
+
+            <!-- Concise Introduction Paragraph -->
+            <p class="hero-description pull-up-word" style="--delay: 0.48s">
+              Run cutting-edge AI models directly on your hardware with 100% data privacy. Zero cloud telemetry, native GGUF inference, local RAG document extraction, and guarded coding workspaces.
+            </p>
+
+            <!-- Integrated Model Readiness Status Strip -->
+            <div class="hero-model-status-card pull-up-word" id="hero-model-status-card" style="--delay: 0.54s" role="region" aria-label="Local Model Readiness">
+              <div class="hero-model-status-header">
+                <div class="hero-model-status-left">
+                  <span class="hero-model-dot" id="hero-model-dot"></span>
+                  <span class="hero-model-status-title" id="hero-model-status-title">Checking Model Readiness...</span>
+                </div>
+                <span class="hero-model-badge" id="hero-model-badge">Evaluating</span>
+              </div>
+              <div class="hero-model-status-desc" id="hero-model-status-desc">
+                Detecting registered GGUF models and hardware capability...
+              </div>
+              <div class="hero-model-actions" id="hero-model-actions">
+                <button type="button" class="btn btn-sm btn-ghost" id="hero-btn-setup-model">⚡ Set up a Model</button>
+                <button type="button" class="btn btn-sm btn-ghost" id="hero-btn-import-model">📥 Import Local GGUF</button>
+              </div>
+            </div>
+
+            <!-- Functional Primary & Secondary Actions -->
+            <div class="hero-actions-group pull-up-word" style="--delay: 0.60s">
+              <button type="button" class="hero-btn-primary" id="hero-btn-start-chat" title="Open AI Chat Workspace (Ctrl+1)">
+                <span>Start Chatting</span>
+                <span class="hero-btn-arrow">→</span>
+              </button>
+              <button type="button" class="hero-btn-secondary" id="hero-btn-open-studio" title="Open Coding Studio (Ctrl+2)">
+                <span>🛠️ Open Coding Studio</span>
+              </button>
+              <button type="button" class="hero-btn-secondary" id="hero-btn-open-models" title="Manage Models in Model Manager">
+                <span>⚡ Model Manager</span>
+              </button>
+            </div>
+
+            <!-- Returning User Startup Preference -->
+            <div class="hero-startup-pref pull-up-word" style="--delay: 0.68s">
+              <label class="welcome-startup-label" title="Controls whether ASTRO opens to this Welcome screen or directly into Chat on startup">
+                <input type="checkbox" id="welcome-chk-startup" checked>
+                <span>Show Welcome on application launch</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- First-Time Onboarding & Capability Cards -->
+          <div class="welcome-onboarding-section">
+            <div class="welcome-section-header">
+              <div class="welcome-section-title">First-Time Setup &amp; Workspaces</div>
+              <div class="welcome-section-desc">Get started in three simple steps or jump straight to any workspace.</div>
+            </div>
+            <div class="welcome-onboarding-grid">
+              <!-- Step 1: Model Engine -->
+              <div class="welcome-onboarding-card" id="onboarding-card-model">
+                <div class="onboarding-step-num">Step 1</div>
+                <div class="onboarding-card-header">
+                  <span class="onboarding-icon">⚡</span>
+                  <div class="onboarding-card-title">Local Model Engine</div>
+                </div>
+                <p class="onboarding-card-text">
+                  Operates 100% offline. Powered by Qwen2.5-Coder-7B or Qwen3-8B in 4-bit GGUF with Ryzen CPU AVX2 acceleration.
+                </p>
+                <div class="onboarding-status-pill" id="onboarding-model-pill">
+                  <span class="dot" id="onboarding-model-dot"></span>
+                  <span id="onboarding-model-text">Checking Model Status...</span>
+                </div>
+                <div class="onboarding-card-actions">
+                  <button type="button" class="btn btn-sm btn-ghost" id="btn-onboarding-models">Manage Models →</button>
+                </div>
+              </div>
+
+              <!-- Step 2: AI Chat -->
+              <div class="welcome-onboarding-card" id="onboarding-card-chat">
+                <div class="onboarding-step-num">Step 2</div>
+                <div class="onboarding-card-header">
+                  <span class="onboarding-icon">💬</span>
+                  <div class="onboarding-card-title">AI Chat Workspace</div>
+                </div>
+                <p class="onboarding-card-text">
+                  Ask questions, generate explanations, copy code blocks with 1-click, and ground answers with verified local document RAG.
+                </p>
+                <div class="onboarding-status-pill">
+                  <span class="dot active"></span>
+                  <span>Multi-Turn Chat Ready</span>
+                </div>
+                <div class="onboarding-card-actions">
+                  <button type="button" class="btn btn-sm btn-primary" id="btn-onboarding-chat">Start Chatting →</button>
+                </div>
+              </div>
+
+              <!-- Step 3: Coding Studio -->
+              <div class="welcome-onboarding-card" id="onboarding-card-studio">
+                <div class="onboarding-step-num">Step 3</div>
+                <div class="onboarding-card-header">
+                  <span class="onboarding-icon">🛠️</span>
+                  <div class="onboarding-card-title">Coding Studio</div>
+                </div>
+                <p class="onboarding-card-text">
+                  VS Code-style activity rail, file tree, line numbers gutter, safe unified diff review, and <code>.astro_bak</code> rollback.
+                </p>
+                <div class="onboarding-status-pill">
+                  <span class="dot active"></span>
+                  <span>Safe Coding Guard Active</span>
+                </div>
+                <div class="onboarding-card-actions">
+                  <button type="button" class="btn btn-sm btn-secondary" id="btn-onboarding-studio">Open Coding Studio →</button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Onboarding / No-Model Notice Banner (Hidden when model is active) -->
@@ -105,8 +267,8 @@
               </div>
             </div>
             <div style="display: flex; gap: 8px; flex-shrink: 0;">
-              <button class="btn btn-sm" id="home-btn-import-gguf">📥 Import Local GGUF</button>
-              <button class="btn btn-sm btn-primary" id="home-btn-manage-models">Open Model Manager</button>
+              <button type="button" class="btn btn-sm" id="home-btn-import-gguf">📥 Import Local GGUF</button>
+              <button type="button" class="btn btn-sm btn-primary" id="home-btn-manage-models">Open Model Manager</button>
             </div>
           </div>
 
@@ -192,8 +354,11 @@
           <!-- Conversation History Sidebar -->
           <aside class="chat-history-sidebar">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);">
-              <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">Conversations</span>
-              <button class="btn btn-sm btn-primary" id="btn-chat-new" title="Start New Conversation">+ New</button>
+              <span style="font-size: 12px; font-weight: 600; color: var(--text-secondary);">💬 Chats</span>
+              <button class="btn btn-sm btn-primary" id="btn-chat-new" title="Start New Conversation (Ctrl+N)">+ New Chat</button>
+            </div>
+            <div style="margin-bottom: 8px; position: relative;">
+              <input type="text" class="input-text" id="chat-conv-search" placeholder="Search chats..." style="width: 100%; font-size: 11px; padding: 4px 8px;">
             </div>
             <div id="chat-conv-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 3px;">
               <!-- Populated by app.js -->
@@ -214,6 +379,12 @@
                 <button class="btn btn-sm" id="btn-chat-rename">Rename</button>
                 <button class="btn btn-sm btn-danger" id="btn-chat-delete">Delete</button>
               </div>
+            </div>
+
+            <!-- Model warning / recovery banner -->
+            <div id="chat-model-warning-banner" class="notice-box warning" style="display: none; margin: 10px 16px 0 16px; align-items: center; justify-content: space-between;">
+              <span id="chat-model-warning-text">⚠️ No model loaded in RAM. Loading a model is required for generation.</span>
+              <button class="btn btn-sm btn-primary" id="btn-chat-quick-load">⚡ Load Model</button>
             </div>
 
             <!-- Drop Zone Overlay for Drag-and-Drop Model Import -->
@@ -252,7 +423,7 @@
                   <span id="chat-sources-chip" style="font-size: 11px; color: var(--accent-primary); display: none;">0 sources selected</span>
                 </div>
                 <div id="chat-metrics-bar" style="font-size: 11px; font-family: var(--font-mono); color: var(--text-muted);"></div>
-                <button class="btn btn-danger btn-sm" id="btn-chat-stop" style="display: none;">Stop</button>
+                <button class="btn btn-danger btn-sm" id="btn-chat-stop" style="display: none;">⏹ Stop Generation</button>
               </div>
 
               <!-- Transcript preview & edit bar -->
@@ -266,7 +437,7 @@
               <div style="display: flex; gap: 8px; margin-top: 4px; align-items: flex-end;">
                 <button class="btn btn-sm" id="btn-chat-model-action" title="Manage, Switch, or Import Local Models" style="padding: 0 10px; font-size: 12px; height: 38px;">🤖 Models</button>
                 <button class="btn btn-sm" id="btn-chat-mic" title="Voice Input / Push-to-Talk" style="padding: 0 12px; font-size: 15px; height: 38px;">🎙️</button>
-                <textarea class="chat-compose-input" id="chat-input-text" placeholder="Type a message or model command (e.g. 'Import a model', 'Switch to Qwen3-8B', 'List models')..."></textarea>
+                <textarea class="chat-compose-input" id="chat-input-text" rows="1" placeholder="Type a message (Enter to send, Shift+Enter for newline)..."></textarea>
                 <button class="btn btn-primary" id="btn-chat-send" style="height: 38px; padding: 0 16px;">Send</button>
               </div>
             </div>
@@ -461,68 +632,155 @@
         </div>
       </section>
 
-      <!-- ================= 06: CODING STUDIO SCREEN ================= -->
+      <!-- ================= 06: CODING STUDIO SCREEN (IDE Layout) ================= -->
       <section class="screen" id="studio-screen">
-        <div class="screen-header">
-          <div>
-            <h2 class="screen-title">Coding Studio &amp; Project Intelligence</h2>
-            <p class="screen-desc">Workspace file browser, code intelligence, diff review, safe editing, and test execution.</p>
+        <div class="studio-ide-shell">
+          <!-- IDE Activity Rail (far left) -->
+          <div class="studio-rail">
+            <button class="rail-btn active" id="rail-btn-files" title="Explorer">📁</button>
+            <button class="rail-btn" id="rail-btn-search" title="Search Code">🔍</button>
+            <button class="rail-btn" id="rail-btn-git" title="Changes &amp; Review">⚖️</button>
+            <button class="rail-btn" id="rail-btn-ai" title="AI Assistant">🤖</button>
+            <button class="rail-btn" id="rail-btn-term" title="Terminal">💻</button>
           </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span id="studio-project-name" class="status-badge" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">No Active Project</span>
-            <button class="btn btn-sm btn-primary" id="btn-studio-open-project">Open Project 📁</button>
-            <button class="btn btn-sm" id="btn-studio-close-project" style="display: none;">Close Project</button>
-          </div>
-        </div>
 
-        <!-- Project Badges Summary -->
-        <div id="studio-project-badges" style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-size: 11.5px;"></div>
-
-        <div class="studio-grid">
-          <!-- File tree & search -->
-          <div class="panel">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-              <div class="card-title" style="margin-bottom: 0;">Project Files</div>
-              <button class="btn btn-sm btn-ghost" id="btn-studio-refresh-tree" title="Refresh files" style="padding: 2px 6px; font-size: 10px;">🔄</button>
+          <!-- Primary Sidebar: File Explorer -->
+          <div class="studio-sidebar" id="studio-primary-sidebar">
+            <div class="sidebar-header">
+              <span class="sidebar-title">Explorer</span>
+              <div class="sidebar-actions">
+                <button class="btn btn-sm btn-ghost btn-icon" id="btn-studio-refresh-tree" title="Refresh files">🔄</button>
+                <button class="btn btn-sm btn-ghost btn-icon" id="btn-collapse-sidebar" title="Collapse Explorer">✕</button>
+                <button class="btn btn-sm btn-ghost btn-icon" id="btn-studio-close-project" title="Close Project" style="display: none;">✕</button>
+              </div>
             </div>
-            <input type="text" class="input-text" id="studio-tree-search" placeholder="Search files or code..." style="font-size: 11px; padding: 4px 8px; margin-bottom: 6px;">
-            <div id="studio-tree-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 3px;">
-              <div style="color: var(--text-muted); font-size: 11.5px; padding: 10px 0;">Open a project folder to inspect files.</div>
+
+            <div class="project-info-bar">
+              <span id="studio-project-name" class="project-pill">No Active Project</span>
+              <button class="btn btn-sm btn-primary" id="btn-studio-open-project" style="font-size: 11px;">Open Folder 📁</button>
+            </div>
+
+            <!-- Project Badges Summary -->
+            <div id="studio-project-badges" class="project-badges-row"></div>
+
+            <div class="sidebar-search-box">
+              <input type="text" class="input-text" id="studio-tree-search" placeholder="Search project files or code...">
+            </div>
+
+            <div id="studio-tree-list" class="file-tree-container">
+              <div class="tree-empty-notice">Open a project folder to inspect and edit files.</div>
             </div>
           </div>
 
-          <!-- Code & Diff Viewer -->
-          <div class="panel">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
-              <span id="studio-active-file-label" style="font-weight: 600; font-size: 12px; font-family: var(--font-mono); word-break: break-all; color: var(--text-primary);">No File Open</span>
-              <div style="display: flex; gap: 6px;">
+          <!-- Center Workspace: Tabs + Editor + Bottom Drawer -->
+          <div class="studio-center-workspace">
+            <!-- Open File Tabs Bar -->
+            <div class="studio-tabs-bar" id="studio-file-tabs">
+              <div class="tab-item active" id="tab-default">
+                <span class="tab-icon">📄</span>
+                <span class="tab-name" id="studio-active-file-label">No File Open</span>
+                <span class="tab-unsaved" id="studio-tab-dirty" style="display: none;">●</span>
+                <button class="tab-close" id="btn-tab-close" title="Close">×</button>
+              </div>
+            </div>
+
+            <!-- Editor Action Bar -->
+            <div class="studio-editor-toolbar">
+              <div class="toolbar-left">
+                <span id="studio-editor-stats" class="editor-stat-label">UTF-8 · 0 lines</span>
+                <div id="studio-credential-warning" class="notice-box warning inline-warning" style="display: none;">
+                  ⚠️ <strong>Sensitive Credentials File:</strong> Review carefully before editing.
+                </div>
+              </div>
+              <div class="toolbar-right">
+                <div class="segmented-control">
+                  <button class="seg-btn active" id="btn-mode-editor">Editor</button>
+                  <button class="seg-btn" id="btn-mode-diff">Diff Preview</button>
+                </div>
+                <button class="btn btn-sm btn-ghost" id="btn-studio-save-file" title="Save file to disk (Ctrl+S)">💾 Save</button>
                 <button class="btn btn-sm btn-danger" id="btn-studio-reject-diff" style="display: none;">Reject Diff</button>
                 <button class="btn btn-sm btn-primary" id="btn-studio-apply-diff" style="display: none;">Approve &amp; Apply (Rule 14)</button>
                 <button class="btn btn-sm" id="btn-studio-revert-diff" style="display: none;" title="Restore file from previous backup">↩ Revert Changes</button>
               </div>
             </div>
-            <div id="studio-credential-warning" class="notice-box warning" style="display: none; margin: 6px 0; padding: 6px 10px; font-size: 11.5px;">
-              ⚠️ <strong>Sensitive Credentials File:</strong> This file contains environment variables or secret keys. Review carefully before editing.
+
+            <!-- Code & Diff Viewer Container -->
+            <div class="studio-editor-body" id="studio-editor-body">
+              <div class="studio-editor-wrapper" id="studio-editor-wrapper">
+                <div class="editor-line-numbers" id="studio-line-numbers" aria-hidden="true">1</div>
+                <textarea class="code-editor-textarea" id="studio-editor-box" spellcheck="false" placeholder="// Select a file from the project tree to view its contents"></textarea>
+              </div>
+              <div class="diff-viewer-container" id="studio-diff-container" style="display: none;"></div>
             </div>
-            <div class="code-box" id="studio-editor-box" style="flex: 1; min-height: 220px;">// Select a file from the project tree to view its contents</div>
+
+            <!-- Bottom Drawer (Terminal, Problems, Logs) -->
+            <div class="studio-bottom-drawer" id="studio-bottom-panel">
+              <div class="drawer-tabs-bar">
+                <div class="drawer-tabs">
+                  <button class="drawer-tab active" data-drawer="terminal" id="tab-drawer-terminal">💻 Terminal</button>
+                  <button class="drawer-tab" data-drawer="checks" id="tab-drawer-checks">🔍 Problems &amp; Checks</button>
+                  <button class="drawer-tab" data-drawer="history" id="tab-drawer-history">📜 Change History</button>
+                </div>
+                <div class="drawer-right-actions" style="display: flex; align-items: center; gap: 8px;">
+                  <span id="studio-cmd-status-badge" class="status-badge" style="display: none;">Ready</span>
+                  <button class="btn btn-sm btn-ghost btn-icon" id="btn-toggle-bottom-drawer" title="Toggle Panel">▼</button>
+                </div>
+              </div>
+
+              <!-- Terminal Pane -->
+              <div class="drawer-pane" id="pane-terminal">
+                <div class="quick-terminal-btns">
+                  <button class="btn btn-sm btn-ghost" id="btn-quick-test">▶ npm test</button>
+                  <button class="btn btn-sm btn-ghost" id="btn-quick-lint">▶ npm run lint</button>
+                  <button class="btn btn-sm btn-ghost" id="btn-quick-git">▶ git status</button>
+                  <button class="btn btn-sm btn-ghost" id="btn-clear-terminal">Clear</button>
+                </div>
+                <div class="terminal-container" id="studio-terminal-output">ASTRO Terminal initialized. Local command execution protected under Rule 9 &amp; 14.</div>
+                <div class="terminal-input-bar">
+                  <span class="term-prompt">$</span>
+                  <input type="text" class="input-text" id="studio-cmd-input" placeholder="npm test, git status, node index.js..." style="flex: 1; font-family: var(--font-mono); font-size: 11.5px;">
+                  <button class="btn btn-sm btn-primary" id="btn-studio-run-cmd">Run</button>
+                  <button class="btn btn-sm btn-danger" id="btn-studio-cancel-cmd" style="display: none;">Cancel</button>
+                </div>
+              </div>
+
+              <!-- Checks Pane -->
+              <div class="drawer-pane" id="pane-checks" style="display: none;">
+                <div id="studio-checks-content" class="drawer-content-box" style="font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); padding: 8px;">No active problems detected. Project structure clean.</div>
+              </div>
+
+              <!-- Change History Pane -->
+              <div class="drawer-pane" id="pane-history" style="display: none;">
+                <div id="studio-history-content" class="drawer-content-box" style="font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); padding: 8px;">No modifications made yet in this session.</div>
+              </div>
+            </div>
           </div>
 
-          <!-- Terminal & Execution Panel -->
-          <div class="panel">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div class="card-title" style="margin-bottom: 0;">Terminal &amp; Checks</div>
-              <span id="studio-cmd-status-badge" class="status-badge" style="display: none;">Ready</span>
+          <!-- Right Dock: AI Assistance Panel -->
+          <div class="studio-ai-dock" id="studio-ai-dock">
+            <div class="ai-dock-header">
+              <span class="ai-dock-title">🤖 AI Assistant</span>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="status-badge" style="font-size: 10px;" id="studio-ai-model-pill">Local Model</span>
+                <button class="btn btn-sm btn-ghost btn-icon" id="btn-close-ai-dock" title="Collapse AI Dock">✕</button>
+              </div>
             </div>
-            <div class="terminal-container" id="studio-terminal-output" style="flex: 1; min-height: 200px;">ASTRO Terminal initialized. Commands require explicit approval (Rule 9).</div>
-            <div style="display: flex; gap: 6px; margin: 6px 0; flex-wrap: wrap;">
-              <button class="btn btn-sm btn-ghost" id="btn-quick-test" style="font-size: 10.5px; border: 1px solid var(--border-subtle);">▶ npm test</button>
-              <button class="btn btn-sm btn-ghost" id="btn-quick-lint" style="font-size: 10.5px; border: 1px solid var(--border-subtle);">▶ npm run lint</button>
-              <button class="btn btn-sm btn-ghost" id="btn-quick-git" style="font-size: 10.5px; border: 1px solid var(--border-subtle);">▶ git status</button>
+            <div class="ai-dock-quick-prompts">
+              <button class="btn btn-sm btn-ghost prompt-action-btn" id="btn-ai-explain">💡 Explain</button>
+              <button class="btn btn-sm btn-ghost prompt-action-btn" id="btn-ai-refactor">⚡ Refactor</button>
+              <button class="btn btn-sm btn-ghost prompt-action-btn" id="btn-ai-tests">🧪 Add Tests</button>
+              <button class="btn btn-sm btn-ghost prompt-action-btn" id="btn-ai-bugs">🐛 Find Bugs</button>
             </div>
-            <div style="display: flex; gap: 6px;">
-              <input type="text" class="input-text" id="studio-cmd-input" placeholder="npm test..." style="flex: 1; font-family: var(--font-mono); font-size: 11.5px;">
-              <button class="btn btn-sm btn-primary" id="btn-studio-run-cmd">Run</button>
-              <button class="btn btn-sm btn-danger" id="btn-studio-cancel-cmd" style="display: none;">Cancel</button>
+            <div class="ai-dock-conversation" id="studio-ai-messages">
+              <div class="ai-msg assistant">
+                Select a code file and ask ASTRO to explain, refactor, or propose modifications. All changes create safe backups before applying.
+              </div>
+            </div>
+            <div class="ai-dock-compose">
+              <textarea id="studio-ai-input" class="input-text ai-input" placeholder="Ask AI about this code..."></textarea>
+              <div style="display: flex; justify-content: flex-end; margin-top: 6px;">
+                <button class="btn btn-sm btn-primary" id="btn-studio-ai-send">Ask Assistant</button>
+              </div>
             </div>
           </div>
         </div>
@@ -749,6 +1007,13 @@
               </div>
               <input type="checkbox" id="setting-sidebar-collapse">
             </div>
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">Welcome Screen on Startup</div>
+                <div class="setting-subtitle">Show the ASTRO welcome and onboarding overview when launching the application</div>
+              </div>
+              <input type="checkbox" id="setting-welcome-startup" checked>
+            </div>
           </div>
 
           <!-- Privacy Tab -->
@@ -854,6 +1119,38 @@ Loading diagnostics...
       </span>
     </div>
   </footer>
+
+  <!-- Modal: Network Privacy & Status Details (Phase 28) -->
+  <div id="modal-network-status" class="astro-modal-backdrop" style="display: none;">
+    <div class="astro-modal-box">
+      <div class="astro-modal-title">🔒 Network &amp; Privacy Boundary</div>
+      <div class="astro-modal-body">
+        <div style="padding: 12px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="font-size: 13px;">Current Network State</strong>
+            <span class="status-badge" id="modal-net-status-pill">Checking...</span>
+          </div>
+          <div id="modal-net-status-desc" style="font-size: 12px; color: var(--text-secondary); line-height: 1.5;">
+            ASTRO is evaluating local connectivity and privacy boundary...
+          </div>
+        </div>
+
+        <div class="card-title" style="margin-bottom: 6px;">Privacy Protections (Rules 2 &amp; 4)</div>
+        <ul style="font-size: 12px; color: var(--text-secondary); line-height: 1.6; padding-left: 20px; margin-bottom: 12px;">
+          <li>Conversations, prompts, and document indexes stay strictly on your local disk.</li>
+          <li>Local model inference and RAG retrieval never make internet requests.</li>
+          <li>Outbound requests only occur when downloading models from Hugging Face or with explicit web research enabled in Settings.</li>
+        </ul>
+
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button class="btn btn-sm" id="btn-modal-open-settings">⚙️ Privacy Settings</button>
+        </div>
+      </div>
+      <div class="astro-modal-footer">
+        <button class="btn btn-sm btn-primary" id="btn-modal-net-close">Got It</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal: Inspect and Import Local Model (BYOM) -->
   <div id="modal-model-inspect" class="astro-modal-backdrop" style="display: none;">

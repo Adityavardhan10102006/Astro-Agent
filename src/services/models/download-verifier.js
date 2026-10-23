@@ -5,7 +5,11 @@ class DownloadVerifier {
   /**
    * Verify file size against expected metadata
    */
-  verifyFileSize(filePath, expectedSizeBytes, toleranceBytes = 0) {
+  verifyFileSize(filePath, expectedSizeBytes, toleranceBytes = 0, isApproximate = false) {
+    if (typeof toleranceBytes === 'object' && toleranceBytes !== null) {
+      isApproximate = Boolean(toleranceBytes.isApproximate);
+      toleranceBytes = toleranceBytes.toleranceBytes || 0;
+    }
     if (!fs.existsSync(filePath)) {
       return { valid: false, error: 'File does not exist on disk' };
     }
@@ -13,7 +17,8 @@ class DownloadVerifier {
     if (stat.size === 0) {
       return { valid: false, error: 'File is empty (0 bytes). Download was interrupted.' };
     }
-    if (expectedSizeBytes && Math.abs(stat.size - expectedSizeBytes) > toleranceBytes) {
+    const effTolerance = isApproximate && expectedSizeBytes ? Math.max(toleranceBytes, expectedSizeBytes * 0.15) : toleranceBytes;
+    if (expectedSizeBytes && Math.abs(stat.size - expectedSizeBytes) > effTolerance) {
       return {
         valid: false,
         error: `Size mismatch: actual size is ${stat.size} bytes, expected ${expectedSizeBytes} bytes (${Math.abs(stat.size - expectedSizeBytes)} byte discrepancy).`,
@@ -110,12 +115,14 @@ class DownloadVerifier {
   /**
    * Comprehensive integrity verification with explicit audit report
    */
-  async verifyModelFile(filePath, expectedSizeBytes = null, expectedSHA256 = null) {
+  async verifyModelFile(filePath, expectedSizeBytes = null, expectedSHA256 = null, options = {}) {
     const checksPerformed = [];
     const unavailableChecks = [];
 
     // 1. File existence & size
-    const sizeCheck = this.verifyFileSize(filePath, expectedSizeBytes);
+    const tolerance = options && options.toleranceBytes ? options.toleranceBytes : 0;
+    const isApprox = Boolean(options && options.isApproximate);
+    const sizeCheck = this.verifyFileSize(filePath, expectedSizeBytes, tolerance, isApprox);
     checksPerformed.push('file_existence_and_size');
     if (!sizeCheck.valid) {
       return {

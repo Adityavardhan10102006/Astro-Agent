@@ -212,9 +212,55 @@ ipcMain.handle('system:check-compatibility', async (event, modelId, quantTag) =>
 
 ipcMain.handle('system:network-status', async () => {
   const settings = storageService.getSettings();
+  let hasNetworkAdapter = false;
+  try {
+    const os = require('os');
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const net of interfaces[name]) {
+        if (!net.internal && (net.family === 'IPv4' || net.family === 4) && net.address !== '127.0.0.1') {
+          hasNetworkAdapter = true;
+          break;
+        }
+      }
+      if (hasNetworkAdapter) break;
+    }
+  } catch (e) {}
+
+  const queue = downloadManager.getQueue();
+  const activeDownloads = queue.filter(q => q.status === 'downloading' || q.status === 'connecting' || q.status === 'verifying');
+
+  const offlineMode = Boolean(settings.privacy.offlineOnly);
+  const isOnline = Boolean(hasNetworkAdapter && !offlineMode);
+
+  let label = 'Offline-First Privacy';
+  let details = 'All assistant inference, document extraction, and RAG search run 100% locally on your machine.';
+
+  if (offlineMode) {
+    label = 'Offline-Only Privacy';
+    details = 'Strict offline boundary active. Internet connections and remote downloads are completely blocked in privacy settings.';
+  } else if (activeDownloads.length > 0) {
+    const count = activeDownloads.length;
+    label = `Downloading Model (${count})`;
+    details = `Active model download in progress: ${activeDownloads.map(d => d.filename).join(', ')}. Local inference remains private.`;
+  } else if (isOnline) {
+    label = 'Local AI • Online';
+    details = 'Hardware connected. Local models run offline; external connections are permitted only for Hugging Face downloads or web research.';
+  } else {
+    label = 'Local AI • Offline';
+    details = 'No active network adapter detected. ASTRO is operating completely air-gapped.';
+  }
+
   return {
     offlineOnly: settings.privacy.offlineOnly,
-    allowExternalServices: settings.privacy.allowExternalServices
+    allowExternalServices: settings.privacy.allowExternalServices,
+    hasNetworkAdapter,
+    isOnline,
+    offlineMode,
+    label,
+    details,
+    activeDownloadsCount: activeDownloads.length,
+    activeDownloads
   };
 });
 
@@ -274,7 +320,22 @@ ipcMain.handle('models:discover', async (event, repoId, token) => {
 ipcMain.handle('models:download', async (event, { url, filename, expectedSizeBytes, token, modelId, variantTag }) => {
   const settings = storageService.getSettings();
   if (settings.privacy.offlineOnly && !settings.privacy.allowExternalServices) {
-    throw new Error('Offline mode is active: Internet downloads are disabled in privacy settings.');
+    throw new Error('Offline mode is active: Internet downloads are disabled in privacy settings. Enable external downloads in Settings or import a local GGUF model.');
+  }
+
+  // Prevent duplicate download jobs when revisited
+  if (downloadManager.isDownloadInProgress(filename)) {
+    const active = downloadManager.getActiveDownload(filename);
+    return {
+      partialPath: downloadManager.getPartialPath(filename),
+      alreadyActive: true,
+      filename,
+      modelId: active ? active.modelId : modelId,
+      status: active ? active.status : 'downloading',
+      phase: active ? active.phase : 'downloading',
+      bytesDownloaded: active ? active.bytesDownloaded : 0,
+      totalBytes: active ? active.totalBytes : (expectedSizeBytes || 0)
+    };
   }
 
   if (modelId && modelLifecycle) {
@@ -285,13 +346,17 @@ ipcMain.handle('models:download', async (event, { url, filename, expectedSizeByt
     id: `dl_${filename}`,
     type: 'model-download',
     label: `Downloading ${filename}`,
-    details: 'Initiating download',
+    details: 'Connecting to model repository...',
     cancellable: true
   });
 
   const progressHandler = (p) => {
     if (p.filename === filename) {
-      activityService.updateProgress(task.id, p.progressPercent, `${p.progressPercent}% · ${(p.speedBytesPerSec / (1024 ** 2)).toFixed(1)} MB/s`);
+      const spd = (p.speedBytesPerSec / (1024 ** 2)).toFixed(1);
+      const detailStr = p.isIndeterminate
+        ? `${(p.bytesDownloaded / (1024 ** 2)).toFixed(1)} MB · ${spd} MB/s (Determining total size...)`
+        : `${p.progressPercent}% · ${spd} MB/s · ETA ${p.etaSeconds}s`;
+      activityService.updateProgress(task.id, p.progressPercent || 0, detailStr);
     }
   };
 
@@ -301,8 +366,8 @@ ipcMain.handle('models:download', async (event, { url, filename, expectedSizeByt
     if (modelId && modelLifecycle) {
       try { modelLifecycle.transition(modelId, 'downloading'); } catch (e) {}
     }
-    const res = await downloadManager.downloadFile(url, filename, expectedSizeBytes, token);
-    activityService.completeTask(task.id, 'Downloaded to partial-downloads');
+    const res = await downloadManager.downloadFile(url, filename, expectedSizeBytes, token, modelId, variantTag);
+    activityService.updateProgress(task.id, 100, 'Downloaded. Verifying GGUF header & file integrity...');
     return res;
   } catch (err) {
     if (err.message.includes('cancelled')) {
@@ -326,9 +391,17 @@ ipcMain.handle('models:pause-download', async (event, filename) => {
   return downloadManager.pauseDownload(filename);
 });
 
-ipcMain.handle('models:cancel-download', async (event, filename) => {
-  const ok = downloadManager.cancelDownload(filename);
-  activityService.cancelTask(`dl_${filename}`);
+ipcMain.handle('models:cancel-download', async (event, filenameOrId) => {
+  let target = filenameOrId;
+  if (target && !target.endsWith('.gguf')) {
+    const queue = downloadManager.getQueue();
+    const match = queue.find(q => q.filename.toLowerCase().includes(target.toLowerCase()) || q.id === `dl_${target}`);
+    if (match) {
+      target = match.filename;
+    }
+  }
+  const ok = downloadManager.cancelDownload(target);
+  activityService.cancelTask(`dl_${target}`);
   return ok;
 });
 
@@ -343,13 +416,19 @@ ipcMain.handle('models:install', async (event, args) => {
   const task = activityService.createTask({
     type: 'model-install',
     label: `Verifying & Installing ${args.modelId}`,
-    details: 'Verifying GGUF integrity and registering'
+    details: 'Verifying GGUF header and checksums locally (Offline)'
   });
   try {
     const res = await modelInstaller.installVerifiedModel(args);
-    activityService.completeTask(task.id, 'Verified and installed');
+    if (args.filename) {
+      activityService.completeTask(`dl_${args.filename}`, 'Downloaded and verified');
+    }
+    activityService.completeTask(task.id, 'Verified and registered in ASTRO');
     return res;
   } catch (err) {
+    if (args.filename) {
+      activityService.failTask(`dl_${args.filename}`, `Installation failed: ${err.message}`);
+    }
     activityService.failTask(task.id, err.message);
     throw err;
   }

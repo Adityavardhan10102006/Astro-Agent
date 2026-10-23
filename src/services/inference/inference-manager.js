@@ -30,8 +30,21 @@ class InferenceManager extends EventEmitter {
     } : null;
   }
 
-  preflightModelCheck({ modelId, filePath, contextWindow = 4096, simulatedMemory = null }) {
-    if (!filePath || !fs.existsSync(filePath)) {
+  preflightModelCheck({ modelId, filePath = null, expectedSizeBytes = null, fileSizeGB: providedGB = null, contextWindow = 4096, simulatedMemory = null }) {
+    let fileSizeGB = 0;
+    let fileSizeBytes = 0;
+
+    if (filePath && fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath);
+      fileSizeBytes = stat.size;
+      fileSizeGB = Number((fileSizeBytes / (1024 ** 3)).toFixed(2));
+    } else if (expectedSizeBytes && expectedSizeBytes > 0) {
+      fileSizeBytes = expectedSizeBytes;
+      fileSizeGB = Number((fileSizeBytes / (1024 ** 3)).toFixed(2));
+    } else if (providedGB && providedGB > 0) {
+      fileSizeGB = Number((Number(providedGB)).toFixed(2));
+      fileSizeBytes = Math.round(fileSizeGB * (1024 ** 3));
+    } else {
       return {
         safe: false,
         severity: 'critical_missing_file',
@@ -39,19 +52,19 @@ class InferenceManager extends EventEmitter {
       };
     }
 
-    const stat = fs.statSync(filePath);
-    const fileSizeBytes = stat.size;
-    const fileSizeGB = Number((fileSizeBytes / (1024 ** 3)).toFixed(2));
-
     const specs = simulatedMemory || ((this.hardware && typeof this.hardware.detectSystemSpecs === 'function') ? this.hardware.detectSystemSpecs(true) : null) || {
       memory: {
         totalGB: Number((os.totalmem() / (1024 ** 3)).toFixed(2)),
         freeGB: Number((os.freemem() / (1024 ** 3)).toFixed(2))
+      },
+      storage: {
+        freeDiskGB: 20.0
       }
     };
 
     const totalRamGB = specs.memory.totalGB;
     const freeRamGB = specs.memory.freeGB;
+    const freeDiskGB = specs.storage && typeof specs.storage.freeDiskGB === 'number' ? specs.storage.freeDiskGB : 20.0;
 
     // Conservative estimation:
     // 1. Model weights in memory: ~fileSizeGB
@@ -64,6 +77,14 @@ class InferenceManager extends EventEmitter {
 
     // 4. Operating System headroom recommendation: at least 1.5 GB
     const osHeadroomGB = 1.5;
+
+    // 5. Disk space preflight check (required = model size + 5.0 GB safety margin)
+    const requiredDiskGB = Number((fileSizeGB + 5.0).toFixed(2));
+    const diskSufficient = freeDiskGB >= requiredDiskGB;
+    let diskWarning = null;
+    if (!diskSufficient) {
+      diskWarning = `Insufficient free disk space: requires ~${requiredDiskGB} GB (includes 5 GB safety margin), but only ${freeDiskGB} GB is available.`;
+    }
 
     let severity = 'safe'; // 'safe' | 'warning_paging' | 'critical_insufficient'
     let message = `Model requires ~${estimatedTotalRamGB} GB RAM (Weights: ${fileSizeGB} GB + Context: ${contextRamGB} GB + Engine: ${runtimeOverheadGB} GB). System has ${freeRamGB} GB free out of ${totalRamGB} GB total.`;
@@ -95,6 +116,7 @@ class InferenceManager extends EventEmitter {
       modelId,
       filePath,
       fileSizeGB,
+      fileSizeBytes,
       contextWindow: effectiveContext,
       contextRamGB,
       runtimeOverheadGB,
@@ -102,6 +124,10 @@ class InferenceManager extends EventEmitter {
       totalRamGB,
       freeRamGB,
       osHeadroomGB,
+      requiredDiskGB,
+      freeDiskGB,
+      diskSufficient,
+      diskWarning,
       message,
       recommendedAction,
       safeAlternatives,

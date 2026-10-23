@@ -172,7 +172,7 @@ ASTRO is built on an **offline-first, private-by-default** architecture:
    - **Model Discovery:** Allows querying Hugging Face model metadata when explicitly invoked by the user and permitted in Settings.
    - **Web Research:** Queries public search APIs only when explicitly enabled by the user (`allowOnline: true`) and permitted in Settings.
 4. **Zero Telemetry:** ASTRO contains no analytics trackers, crash-reporting beacons, or background telemetry.
-5. **Runtime Sandboxing:** The Electron renderer runs with `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`, strict Content Security Policy (`default-src 'self'`), navigation interception, and window-open denial.
+5. **Runtime Sandboxing:** The Electron renderer runs with `sandbox: true`, `contextIsolation: true`, `nodeIntegration: false`, Content Security Policy (`default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:`), navigation interception, and window-open denial.
 
 For full architectural details, see the [`PRIVACY_STATEMENT.md`](docs/PRIVACY_STATEMENT.md).
 
@@ -240,10 +240,10 @@ npm.cmd start
 ### Running Automated Tests
 ASTRO maintains an automated regression test suite covering all subsystems (Storage, Hardware, Verification, RAG, Security, Coding Studio, Lifecycle, BYOM, UI, and Memory Preflight):
 ```cmd
-# Run all 18 test suites (158 automated tests)
+# Run all 23 test suites (188 automated tests)
 npm.cmd test
 ```
-*Current Test Status:* **158 passed, 0 failed, 0 skipped (100% pass rate)**.
+*Current Test Status:* **188 passed, 0 failed, 0 skipped (100% pass rate)**.
 
 ### Building Release Packages
 ```cmd
@@ -259,7 +259,7 @@ npm.cmd run verify:checksums
 
 ## Security Notice & Known Limitations
 
-1. **Technical Preview Status:** ASTRO v0.1.0 is currently classified as a **Restricted Technical Preview**. It has been validated through 158 automated regression tests and real hardware inference on an AMD Ryzen 5 laptop, but has not yet undergone wide-scale consumer field testing.
+1. **Technical Preview Status:** ASTRO v0.1.0 is currently classified as a **Restricted Technical Preview**. It has been validated through 188 automated regression tests and real hardware inference on an AMD Ryzen 5 laptop, but has not yet undergone wide-scale consumer field testing.
 2. **Authenticode Code Signing:** Binaries are currently unsigned (`NotSigned`). Commercial Authenticode code signing is planned before any general consumer distribution.
 3. **Inference Performance:** CPU inference provides steady interactive generation (~4.4 tokens/sec for 8B models), but will not match the latency of dedicated datacenter GPU clusters.
 4. **Clean-Machine VM Validation:** Clean-machine installation testing was verified on the host system without developer tools, but has not yet been conducted on a bare-metal isolated VM due to workstation sandbox constraints.

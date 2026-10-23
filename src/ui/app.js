@@ -37,6 +37,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const bottomActivityText = document.getElementById('bottom-activity-text');
   const bottomActivityLink = document.getElementById('bottom-activity-link');
 
+  // Dual-Workspace Switcher Buttons (Phase 28)
+  const btnWsChat = document.getElementById('btn-ws-chat');
+  const btnWsStudio = document.getElementById('btn-ws-studio');
+
+  // Network Boundary & Privacy Modal (Phase 28)
+  const modalNetworkStatus = document.getElementById('modal-network-status');
+  const modalNetStatusPill = document.getElementById('modal-net-status-pill');
+  const modalNetStatusDesc = document.getElementById('modal-net-status-desc');
+  const btnModalOpenSettings = document.getElementById('btn-modal-open-settings');
+  const btnModalNetClose = document.getElementById('btn-modal-net-close');
+
   // --- Toast Notification Utility ---
   function showToast(message, type = 'info') {
     const container = document.getElementById('toast-container');
@@ -76,7 +87,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- Navigation & Sidebar Logic ---
   const screenTitleMap = {
-    'home-screen': '🏠 Home',
+    'home-screen': '🏠 Welcome',
     'chat-screen': '💬 Chat',
     'files-screen': '📁 Files',
     'rag-screen': '📚 Knowledge & RAG',
@@ -105,6 +116,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
+    // Update Topbar Dual-Workspace Switcher
+    if (btnWsChat) btnWsChat.classList.toggle('active', screenId === 'chat-screen');
+    if (btnWsStudio) btnWsStudio.classList.toggle('active', screenId === 'studio-screen');
+
     currentScreen = screenId;
 
     if (topbarScreenTitle && screenTitleMap[screenId]) {
@@ -123,6 +138,97 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (screenId === 'settings-screen') refreshSettingsView();
   }
   window.navigateTo = navigateTo;
+
+  // Dual-Workspace Switcher Click Bindings
+  if (btnWsChat) {
+    btnWsChat.addEventListener('click', () => navigateTo('chat-screen'));
+  }
+  if (btnWsStudio) {
+    btnWsStudio.addEventListener('click', () => navigateTo('studio-screen'));
+  }
+
+  // Keyboard Shortcuts (Ctrl+1: Chat, Ctrl+2: Studio, Ctrl+N: New Chat)
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === '1') {
+      e.preventDefault();
+      navigateTo('chat-screen');
+    } else if (e.ctrlKey && e.key === '2') {
+      e.preventDefault();
+      navigateTo('studio-screen');
+    } else if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N') && currentScreen === 'chat-screen') {
+      e.preventDefault();
+      const newBtn = document.getElementById('btn-chat-new');
+      if (newBtn) newBtn.click();
+    }
+  });
+
+  // Network & Privacy Status Modal Controller (Phase 28)
+  async function openNetworkStatusModal() {
+    if (!modalNetworkStatus) return;
+    modalNetworkStatus.style.display = 'flex';
+    try {
+      const net = await api.getNetworkStatus();
+      if (modalNetStatusPill) {
+        modalNetStatusPill.textContent = net.label;
+        modalNetStatusPill.style.background = net.offlineMode
+          ? 'var(--accent-warning-subtle)'
+          : (net.isOnline ? 'var(--accent-success-subtle)' : 'rgba(239, 68, 68, 0.15)');
+        modalNetStatusPill.style.color = net.offlineMode
+          ? 'var(--accent-warning)'
+          : (net.isOnline ? 'var(--accent-success)' : 'var(--accent-danger)');
+      }
+      if (modalNetStatusDesc) {
+        modalNetStatusDesc.textContent = net.details;
+      }
+    } catch (err) {
+      if (modalNetStatusDesc) modalNetStatusDesc.textContent = 'Could not inspect network state: ' + err.message;
+    }
+  }
+
+  if (topbarOfflineBadge) {
+    topbarOfflineBadge.addEventListener('click', openNetworkStatusModal);
+  }
+  if (btnModalNetClose) {
+    btnModalNetClose.addEventListener('click', () => {
+      if (modalNetworkStatus) modalNetworkStatus.style.display = 'none';
+    });
+  }
+  if (btnModalOpenSettings) {
+    btnModalOpenSettings.addEventListener('click', () => {
+      if (modalNetworkStatus) modalNetworkStatus.style.display = 'none';
+      navigateTo('settings-screen');
+    });
+  }
+
+  async function refreshNetworkStatus() {
+    try {
+      const net = await api.getNetworkStatus();
+      if (!net) return;
+      const dot = document.getElementById('topbar-offline-dot');
+      if (topbarOfflineText) {
+        topbarOfflineText.textContent = net.label;
+      }
+      if (dot) {
+        if (net.offlineMode) {
+          dot.className = 'dot offline';
+        } else if (net.activeDownloads > 0) {
+          dot.className = 'dot active';
+        } else if (net.isOnline) {
+          dot.className = 'dot active';
+        } else {
+          dot.className = 'dot';
+        }
+      }
+      if (topbarOfflineBadge) {
+        topbarOfflineBadge.title = `${net.label}: ${net.details}`;
+      }
+      if (bottomOfflineText) {
+        bottomOfflineText.textContent = `Privacy: ${net.offlineMode ? 'Offline-Only' : 'Permitted'} · ${net.isOnline ? 'Connected' : 'No Network'}`;
+      }
+    } catch (e) {
+      console.warn('Network status error:', e);
+    }
+  }
 
   if (topbarModelBadge) {
     topbarModelBadge.addEventListener('click', openModelSwitcherModal);
@@ -146,10 +252,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // --- Theme Toggle ---
-  btnThemeToggle.addEventListener('click', () => {
+  btnThemeToggle.addEventListener('click', async () => {
     const currentTheme = document.body.getAttribute('data-theme') || 'dark';
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
+    if (currentSettings) {
+      if (!currentSettings.appearance) currentSettings.appearance = {};
+      currentSettings.appearance.theme = newTheme;
+      try {
+        await api.saveSettings(currentSettings);
+      } catch (e) {}
+    }
   });
 
   function setTheme(theme) {
@@ -158,27 +271,156 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (select) select.value = theme;
   }
 
-  // --- Initialization & Status Updates ---
+  // --- Initialization & Status Updates (Resilient Phase 28) ---
   async function initApp() {
     try {
       currentSettings = await api.getSettings();
       if (currentSettings && currentSettings.appearance && currentSettings.appearance.theme) {
         setTheme(currentSettings.appearance.theme);
       }
+    } catch (err) {
+      console.warn('Settings load fallback:', err);
+    }
 
+    try {
       await refreshHardwareStatus();
-      await refreshActiveModel();
-      await refreshActivityBadge();
+    } catch (err) {
+      console.warn('Hardware specs load fallback:', err);
+    }
 
-      // Listen to real-time events
+    try {
+      await refreshNetworkStatus();
+    } catch (err) {
+      console.warn('Network status load fallback:', err);
+    }
+
+    try {
+      await refreshActiveModel();
+    } catch (err) {
+      console.warn('Active model load fallback:', err);
+    }
+
+    try {
+      await refreshActivityBadge();
+    } catch (err) {
+      console.warn('Activity badge load fallback:', err);
+    }
+
+    try {
+      // Listen to real-time activity events
       api.onActivityChanged((tasks) => {
         updateActivityBadge(tasks);
         if (currentScreen === 'activity-screen') renderActivityTasks(tasks);
       });
-
-      refreshHomeView();
     } catch (err) {
-      console.error('Initialization error:', err);
+      console.warn('Activity listener fallback:', err);
+    }
+
+    try {
+      // Listen to real-time download progress events (Core Workflow Repair)
+      if (api.onDownloadProgress) {
+        api.onDownloadProgress((p) => {
+          updateDownloadCardUI(p);
+          refreshNetworkStatus();
+        });
+      }
+    } catch (err) {
+      console.warn('Download progress listener fallback:', err);
+    }
+
+    // First-run & returning-user navigation flow (Phase 30)
+    try {
+      const showWelcomePref = currentSettings?.appearance?.showWelcomeOnStartup !== false;
+      const hasOnboarded = localStorage.getItem('astro_has_onboarded') === 'true';
+      if (showWelcomePref && !hasOnboarded) {
+        // First run -> Guide user with Welcome & Onboarding
+        navigateTo('home-screen');
+      } else if (showWelcomePref) {
+        // User configured Welcome screen on startup
+        navigateTo('home-screen');
+      } else {
+        // Returning user -> Direct entry to AI Chat workspace
+        navigateTo('chat-screen');
+      }
+    } catch (err) {
+      navigateTo('home-screen');
+    }
+  }
+
+  // --- Real-time Download UI Card Controller ---
+  function updateDownloadCardUI(p) {
+    if (!p) return;
+    const targetId = p.modelId || (p.filename && p.filename.toLowerCase().includes('qwen3') ? 'qwen3-8b' : 'qwen2.5-coder-7b');
+    const dlBox = document.getElementById(`dl-box-${targetId}`);
+    const dlTitle = document.getElementById(`dl-title-${targetId}`);
+    const dlFill = document.getElementById(`model-dl-fill-${targetId}`);
+    const dlStats = document.getElementById(`model-dl-stats-${targetId}`);
+    const dlBtn = document.getElementById(`btn-dl-${p.filename}`);
+
+    if (dlBtn) {
+      if (p.status === 'completed') {
+        dlBtn.disabled = false;
+        dlBtn.textContent = 'Installed';
+      } else {
+        dlBtn.disabled = true;
+        dlBtn.textContent = `⏳ ${p.progressPercent || 0}%`;
+      }
+    }
+
+    if (dlBox) {
+      if (p.status === 'completed') {
+        setTimeout(() => {
+          if (dlBox) dlBox.style.display = 'none';
+          if (currentScreen === 'models-screen') refreshModelsView();
+        }, 1500);
+      } else if (p.status === 'failed' || p.status === 'cancelled') {
+        setTimeout(() => {
+          if (dlBox) dlBox.style.display = 'none';
+          if (currentScreen === 'models-screen') refreshModelsView();
+        }, 2000);
+      } else {
+        dlBox.style.display = 'block';
+      }
+    }
+
+    if (dlTitle) {
+      if (p.status === 'connecting' || p.phase === 'connecting') {
+        dlTitle.textContent = `Connecting to ${p.filename}...`;
+      } else if (p.status === 'verifying' || p.phase === 'verifying') {
+        dlTitle.textContent = `Verifying GGUF header & file integrity...`;
+      } else if (p.status === 'completed' || p.phase === 'completed') {
+        dlTitle.textContent = `Download complete! Ready to install.`;
+      } else if (p.status === 'cancelled') {
+        dlTitle.textContent = `Download cancelled: ${p.filename}`;
+      } else if (p.status === 'failed') {
+        dlTitle.textContent = `Download failed: ${p.error || p.filename}`;
+      } else {
+        dlTitle.textContent = `Downloading ${p.filename}`;
+      }
+    }
+
+    if (dlFill) {
+      if (p.isIndeterminate) {
+        dlFill.classList.add('indeterminate-bar');
+        dlFill.style.width = '100%';
+      } else {
+        dlFill.classList.remove('indeterminate-bar');
+        dlFill.style.width = `${Math.min(100, Math.max(0, p.progressPercent || 0))}%`;
+      }
+    }
+
+    if (dlStats) {
+      const spd = ((p.speedBytesPerSec || 0) / (1024 ** 2)).toFixed(1);
+      const downloadedMB = ((p.bytesDownloaded || 0) / (1024 ** 2)).toFixed(1);
+      if (p.isIndeterminate) {
+        dlStats.textContent = `${downloadedMB} MB downloaded · ${spd} MB/s (Determining total size...)`;
+      } else if (p.totalBytes > 0) {
+        const totalMB = (p.totalBytes / (1024 ** 2)).toFixed(1);
+        const eta = p.etaSeconds ? ` · ETA ${p.etaSeconds}s` : '';
+        dlStats.textContent = `${p.progressPercent || 0}% (${downloadedMB} / ${totalMB} MB) · ${spd} MB/s${eta}`;
+      } else {
+        dlStats.textContent = `${downloadedMB} MB · ${spd} MB/s`;
+      }
     }
   }
 
@@ -194,9 +436,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     activeModel = await api.getActiveModel();
     const chatActivePill = document.getElementById('chat-active-model-pill');
     const homeNoModelBanner = document.getElementById('home-no-model-banner');
+    const chatWarningBanner = document.getElementById('chat-model-warning-banner');
+    const studioAiPill = document.getElementById('studio-ai-model-pill');
 
     if (activeModel) {
       if (homeNoModelBanner) homeNoModelBanner.style.display = 'none';
+      if (chatWarningBanner) chatWarningBanner.style.display = 'none';
       topbarModelDot.className = 'dot active';
       topbarModelText.textContent = `${activeModel.modelId} (Active)`;
       bottomModelDot.className = 'dot active';
@@ -205,8 +450,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         chatActivePill.textContent = `🤖 ${activeModel.modelId}`;
         chatActivePill.style.color = 'var(--accent-success)';
       }
+      if (studioAiPill) {
+        studioAiPill.textContent = activeModel.modelId;
+        studioAiPill.style.background = 'var(--accent-success-subtle)';
+        studioAiPill.style.color = 'var(--accent-success)';
+      }
     } else {
       if (homeNoModelBanner) homeNoModelBanner.style.display = 'flex';
+      if (chatWarningBanner) chatWarningBanner.style.display = 'flex';
       topbarModelDot.className = 'dot';
       topbarModelText.textContent = 'No Model Loaded';
       bottomModelDot.className = 'dot';
@@ -215,7 +466,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         chatActivePill.textContent = `🤖 Click to Load Model`;
         chatActivePill.style.color = 'var(--accent-warning)';
       }
+      if (studioAiPill) {
+        studioAiPill.textContent = 'No Local Model';
+        studioAiPill.style.background = 'var(--accent-warning-subtle)';
+        studioAiPill.style.color = 'var(--accent-warning)';
+      }
     }
+  }
+
+  const btnChatQuickLoad = document.getElementById('btn-chat-quick-load');
+  if (btnChatQuickLoad) {
+    btnChatQuickLoad.addEventListener('click', openModelSwitcherModal);
   }
 
 
@@ -270,6 +531,99 @@ document.addEventListener('DOMContentLoaded', async () => {
     navigateTo('voice-screen');
   });
 
+  // --- ASTRO Animated Hero Action & Navigation Bindings (Phase 30) ---
+  const heroNavChat = document.getElementById('hero-nav-chat');
+  if (heroNavChat) heroNavChat.addEventListener('click', () => navigateTo('chat-screen'));
+
+  const heroNavStudio = document.getElementById('hero-nav-studio');
+  if (heroNavStudio) heroNavStudio.addEventListener('click', () => navigateTo('studio-screen'));
+
+  const heroNavModels = document.getElementById('hero-nav-models');
+  if (heroNavModels) heroNavModels.addEventListener('click', () => navigateTo('models-screen'));
+
+  const heroNavSettings = document.getElementById('hero-nav-settings');
+  if (heroNavSettings) heroNavSettings.addEventListener('click', () => navigateTo('settings-screen'));
+
+  const heroBtnStartChat = document.getElementById('hero-btn-start-chat');
+  if (heroBtnStartChat) {
+    heroBtnStartChat.addEventListener('click', async () => {
+      localStorage.setItem('astro_has_onboarded', 'true');
+      navigateTo('chat-screen');
+      try {
+        const btnNew = document.getElementById('btn-chat-new');
+        if (btnNew) btnNew.click();
+      } catch (e) {}
+      const chatInput = document.getElementById('chat-input-text');
+      if (chatInput) setTimeout(() => chatInput.focus(), 80);
+    });
+  }
+
+  const heroBtnOpenStudio = document.getElementById('hero-btn-open-studio');
+  if (heroBtnOpenStudio) {
+    heroBtnOpenStudio.addEventListener('click', () => {
+      localStorage.setItem('astro_has_onboarded', 'true');
+      navigateTo('studio-screen');
+    });
+  }
+
+  const heroBtnOpenModels = document.getElementById('hero-btn-open-models');
+  if (heroBtnOpenModels) {
+    heroBtnOpenModels.addEventListener('click', () => navigateTo('models-screen'));
+  }
+
+  const heroBtnSetupModel = document.getElementById('hero-btn-setup-model');
+  if (heroBtnSetupModel) {
+    heroBtnSetupModel.addEventListener('click', () => {
+      if (activeModel) {
+        openModelSwitcherModal();
+      } else {
+        navigateTo('models-screen');
+      }
+    });
+  }
+
+  const heroBtnImportModel = document.getElementById('hero-btn-import-model');
+  if (heroBtnImportModel) {
+    heroBtnImportModel.addEventListener('click', () => window.triggerImportModelPicker());
+  }
+
+  // Startup preference checkbox on welcome screen
+  const welcomeChkStartup = document.getElementById('welcome-chk-startup');
+  if (welcomeChkStartup) {
+    welcomeChkStartup.addEventListener('change', async () => {
+      if (!currentSettings) currentSettings = await api.getSettings();
+      if (!currentSettings.appearance) currentSettings.appearance = {};
+      currentSettings.appearance.showWelcomeOnStartup = welcomeChkStartup.checked;
+      await api.saveSettings(currentSettings);
+      const settingWelcomeStartup = document.getElementById('setting-welcome-startup');
+      if (settingWelcomeStartup) settingWelcomeStartup.checked = welcomeChkStartup.checked;
+    });
+  }
+
+  // 3-Step Onboarding Guidance Cards
+  const btnOnboardingModels = document.getElementById('btn-onboarding-models');
+  if (btnOnboardingModels) {
+    btnOnboardingModels.addEventListener('click', () => navigateTo('models-screen'));
+  }
+
+  const btnOnboardingChat = document.getElementById('btn-onboarding-chat');
+  if (btnOnboardingChat) {
+    btnOnboardingChat.addEventListener('click', () => {
+      localStorage.setItem('astro_has_onboarded', 'true');
+      navigateTo('chat-screen');
+      const chatInput = document.getElementById('chat-input-text');
+      if (chatInput) setTimeout(() => chatInput.focus(), 80);
+    });
+  }
+
+  const btnOnboardingStudio = document.getElementById('btn-onboarding-studio');
+  if (btnOnboardingStudio) {
+    btnOnboardingStudio.addEventListener('click', () => {
+      localStorage.setItem('astro_has_onboarded', 'true');
+      navigateTo('studio-screen');
+    });
+  }
+
   document.getElementById('qa-find-files').addEventListener('click', () => navigateTo('files-screen'));
   document.getElementById('qa-ask-rag').addEventListener('click', () => navigateTo('rag-screen'));
   document.getElementById('qa-start-coding').addEventListener('click', () => navigateTo('studio-screen'));
@@ -291,16 +645,142 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function refreshHomeView() {
     await refreshActiveModel();
+
+    // Elements for Hero Model Readiness
+    const heroModelDot = document.getElementById('hero-model-dot');
+    const heroModelBadge = document.getElementById('hero-model-badge');
+    const heroModelStatusTitle = document.getElementById('hero-model-status-title');
+    const heroModelStatusDesc = document.getElementById('hero-model-status-desc');
+    const heroBtnSetup = document.getElementById('hero-btn-setup-model');
+    const onboardingModelDot = document.getElementById('onboarding-model-dot');
+    const onboardingModelText = document.getElementById('onboarding-model-text');
+    const welcomeChk = document.getElementById('welcome-chk-startup');
+
+    // Sync startup preference checkbox
+    if (welcomeChk && currentSettings && currentSettings.appearance) {
+      welcomeChk.checked = currentSettings.appearance.showWelcomeOnStartup !== false;
+    }
+
+    let catalog = null;
+    let queue = [];
+    try {
+      catalog = await api.getCatalog();
+    } catch (e) {}
+    try {
+      queue = await api.getDownloadQueue();
+    } catch (e) {}
+
+    const activeDownloads = (queue || []).filter(q => q.status === 'downloading' || q.status === 'connecting' || q.status === 'verifying');
+    const installedModels = (catalog && catalog.models) ? catalog.models.filter(m => m.installed || m.localPath) : [];
+
     if (activeModel) {
-      homeModelContent.innerHTML = `
-        <strong>${escapeHtml(activeModel.modelId)}</strong> is loaded in memory.<br>
-        Load time: ${activeModel.loadTimeMs}ms · Context: 4096 tokens.
-      `;
+      // State 1: Active Model in Memory
+      if (heroModelDot) heroModelDot.className = 'hero-model-dot ready';
+      if (heroModelBadge) {
+        heroModelBadge.className = 'hero-model-badge ready';
+        heroModelBadge.textContent = 'Active & Ready';
+      }
+      if (heroModelStatusTitle) {
+        heroModelStatusTitle.textContent = `Model Ready: ${activeModel.displayName || activeModel.modelId}`;
+      }
+      if (heroModelStatusDesc) {
+        heroModelStatusDesc.innerHTML = `Loaded in memory (${activeModel.loadTimeMs || 0}ms). 4096-token context window ready for offline chat and code assistance.`;
+      }
+      if (heroBtnSetup) {
+        heroBtnSetup.textContent = '🔄 Switch Active Model';
+        heroBtnSetup.onclick = openModelSwitcherModal;
+      }
+      if (onboardingModelDot) onboardingModelDot.className = 'dot active';
+      if (onboardingModelText) onboardingModelText.textContent = `Active: ${activeModel.modelId}`;
+
+      if (homeModelContent) {
+        homeModelContent.innerHTML = `
+          <strong>${escapeHtml(activeModel.modelId)}</strong> is loaded in memory.<br>
+          Load time: ${activeModel.loadTimeMs || 0}ms · Context: 4096 tokens.
+        `;
+      }
+    } else if (activeDownloads.length > 0) {
+      // State 2: Model Downloading / Verifying
+      const activeDl = activeDownloads[0];
+      if (heroModelDot) heroModelDot.className = 'hero-model-dot loading';
+      if (heroModelBadge) {
+        heroModelBadge.className = 'hero-model-badge loading';
+        heroModelBadge.textContent = 'Downloading';
+      }
+      if (heroModelStatusTitle) {
+        heroModelStatusTitle.textContent = `Downloading ${activeDl.filename}...`;
+      }
+      if (heroModelStatusDesc) {
+        const dlMB = ((activeDl.bytesDownloaded || 0) / (1024 ** 2)).toFixed(1);
+        const totMB = activeDl.totalBytes ? ` of ${(activeDl.totalBytes / (1024 ** 2)).toFixed(1)} MB` : '';
+        heroModelStatusDesc.textContent = `Download in progress (${dlMB}${totMB}). You can explore other areas while download finishes.`;
+      }
+      if (heroBtnSetup) {
+        heroBtnSetup.textContent = '⏱️ View in Activity';
+        heroBtnSetup.onclick = () => navigateTo('activity-screen');
+      }
+      if (onboardingModelDot) onboardingModelDot.className = 'dot active';
+      if (onboardingModelText) onboardingModelText.textContent = `Downloading (${activeDl.filename})`;
+
+      if (homeModelContent) {
+        homeModelContent.innerHTML = `
+          <em>Downloading ${escapeHtml(activeDl.filename)}...</em><br>
+          View real-time progress in Activity or Model Manager.
+        `;
+      }
+    } else if (installedModels.length > 0) {
+      // State 3: Model Installed on Disk but Not Loaded in Memory
+      const firstInstalled = installedModels[0];
+      if (heroModelDot) heroModelDot.className = 'hero-model-dot installed';
+      if (heroModelBadge) {
+        heroModelBadge.className = 'hero-model-badge installed';
+        heroModelBadge.textContent = 'Installed (Not Loaded)';
+      }
+      if (heroModelStatusTitle) {
+        heroModelStatusTitle.textContent = `Model Available: ${firstInstalled.displayName || firstInstalled.id}`;
+      }
+      if (heroModelStatusDesc) {
+        heroModelStatusDesc.textContent = `A compatible GGUF model is registered on disk. Click "Start Chatting" to load on demand, or manage models in Model Manager.`;
+      }
+      if (heroBtnSetup) {
+        heroBtnSetup.textContent = '⚡ Load or Switch Model';
+        heroBtnSetup.onclick = openModelSwitcherModal;
+      }
+      if (onboardingModelDot) onboardingModelDot.className = 'dot active';
+      if (onboardingModelText) onboardingModelText.textContent = `Installed: ${firstInstalled.id}`;
+
+      if (homeModelContent) {
+        homeModelContent.innerHTML = `
+          <em>Model registered: ${escapeHtml(firstInstalled.id)}.</em><br>
+          Ready to load on demand or via Model Switcher.
+        `;
+      }
     } else {
-      homeModelContent.innerHTML = `
-        <em>No model is currently loaded in memory.</em><br>
-        Open Model Manager to load Qwen2.5-Coder for offline inference.
-      `;
+      // State 4: No Model Registered (First Run)
+      if (heroModelDot) heroModelDot.className = 'hero-model-dot setup-needed';
+      if (heroModelBadge) {
+        heroModelBadge.className = 'hero-model-badge warning';
+        heroModelBadge.textContent = 'Setup Required';
+      }
+      if (heroModelStatusTitle) {
+        heroModelStatusTitle.textContent = 'No Local Model Registered';
+      }
+      if (heroModelStatusDesc) {
+        heroModelStatusDesc.textContent = 'ASTRO operates 100% offline. Import an existing .gguf file from your disk or download Qwen2.5-Coder in Model Manager.';
+      }
+      if (heroBtnSetup) {
+        heroBtnSetup.textContent = '⚡ Set up a Model';
+        heroBtnSetup.onclick = () => navigateTo('models-screen');
+      }
+      if (onboardingModelDot) onboardingModelDot.className = 'dot warning';
+      if (onboardingModelText) onboardingModelText.textContent = 'Setup Required';
+
+      if (homeModelContent) {
+        homeModelContent.innerHTML = `
+          <em>No model registered yet.</em><br>
+          Open Model Manager to download Qwen2.5-Coder or import local GGUF.
+        `;
+      }
     }
 
     const specs = await api.getHardwareSpecs();
@@ -653,6 +1133,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         <div class="prompt-suggestion-chips" style="margin-top: 8px;">
           <span class="prompt-chip" data-prompt="List models">⚡ List Models</span>
           <span class="prompt-chip" data-prompt="Import a local model">📥 Import Local GGUF</span>
+        </div>
+        <div style="margin-top: 10px;">
+          <button class="btn btn-sm btn-primary" onclick="window.openModelSwitcherModal()">⚡ Choose &amp; Load Model</button>
         </div>`;
       asstRow.appendChild(bubble);
       chatMessagesScroll.appendChild(asstRow);
@@ -1155,14 +1638,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const pill = document.getElementById('chat-active-model-pill');
-      if (pill) pill.textContent = `⏳ Switching to ${modelId}...`;
+      if (pill) {
+        pill.textContent = `⏳ Switching to ${modelId}...`;
+        pill.style.color = 'var(--accent-warning)';
+      }
+      if (topbarModelText) topbarModelText.textContent = `⏳ Switching to ${modelId}...`;
+      if (topbarModelDot) topbarModelDot.className = 'dot';
+      showToast(`Unloading current model and loading ${modelId} into RAM...`, 'info');
 
       const result = await api.switchActiveModel(modelId, filePath, options);
       await refreshActiveModel();
       refreshModelsView();
-      alert(`Successfully switched active model to "${result.displayName || modelId}"!\nInference engine is ready in chat.`);
+      showToast(`Successfully switched active model to "${result.displayName || modelId}"! Ready in AI Chat.`, 'success');
     } catch (e) {
-      alert(`Failed to switch model: ${e.message}`);
+      showToast(`Failed to switch model: ${e.message}`, 'danger');
       await refreshActiveModel();
     }
   };
@@ -1251,20 +1740,90 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
 
+  const chatConvSearch = document.getElementById('chat-conv-search');
+  if (chatConvSearch) {
+    chatConvSearch.addEventListener('input', () => {
+      refreshConversationsList();
+    });
+  }
+
   async function refreshConversationsList() {
     const list = await api.getConversations();
+    const query = chatConvSearch ? chatConvSearch.value.trim().toLowerCase() : '';
+    const filtered = query
+      ? list.filter(c => (c.title && c.title.toLowerCase().includes(query)) || (c.lastSnippet && c.lastSnippet.toLowerCase().includes(query)))
+      : list;
+
     chatConvList.innerHTML = '';
-    list.forEach(c => {
+    if (filtered.length === 0) {
+      if (query) {
+        chatConvList.innerHTML = `
+          <div class="chat-conv-empty-state">
+            <p style="margin: 0;">No chats match "<strong>${escapeHtml(query)}</strong>"</p>
+            <button class="btn btn-sm btn-ghost" id="btn-clear-chat-search" style="font-size: 11px;">Clear search</button>
+          </div>
+        `;
+        const btnClear = document.getElementById('btn-clear-chat-search');
+        if (btnClear && chatConvSearch) {
+          btnClear.addEventListener('click', () => {
+            chatConvSearch.value = '';
+            refreshConversationsList();
+          });
+        }
+      } else {
+        chatConvList.innerHTML = `
+          <div class="chat-conv-empty-state">
+            <span style="font-size: 20px;">💬</span>
+            <p style="margin: 0;">No conversations yet.</p>
+            <button class="btn btn-sm btn-primary" id="btn-chat-empty-new" style="margin-top: 4px; font-size: 11px;">+ Start New Chat</button>
+          </div>
+        `;
+        const btnEmptyNew = document.getElementById('btn-chat-empty-new');
+        if (btnEmptyNew && btnChatNew) {
+          btnEmptyNew.addEventListener('click', () => btnChatNew.click());
+        }
+      }
+      return;
+    }
+
+    filtered.forEach(c => {
       const item = document.createElement('div');
       item.className = `conv-item ${c.id === activeConversationId ? 'active' : ''}`;
       item.innerHTML = `
-        <span class="conv-item-title">${escapeHtml(c.title)}</span>
-        <span style="font-size: 10px; color: var(--text-muted);">${c.messageCount}</span>
+        <span class="conv-item-icon">💬</span>
+        <span class="conv-item-title" title="${escapeHtml(c.title)}">${escapeHtml(c.title)}</span>
+        <span class="conv-item-badge">${c.messageCount || 0}</span>
+        <div class="conv-item-actions">
+          <button class="conv-action-btn" title="Rename" onclick="event.stopPropagation(); window.triggerRenameConversation('${c.id}', '${escapeHtml(c.title)}')">✏️</button>
+          <button class="conv-action-btn delete" title="Delete" onclick="event.stopPropagation(); window.triggerDeleteConversation('${c.id}')">🗑️</button>
+        </div>
       `;
       item.onclick = () => loadConversationIntoChat(c.id);
       chatConvList.appendChild(item);
     });
   }
+
+  window.triggerRenameConversation = async (convId, currentTitle) => {
+    const newName = prompt('Enter new conversation title:', currentTitle);
+    if (newName && newName.trim()) {
+      await api.renameConversation(convId, newName.trim());
+      if (convId === activeConversationId && chatActiveTitle) {
+        chatActiveTitle.textContent = newName.trim();
+      }
+      refreshConversationsList();
+    }
+  };
+
+  window.triggerDeleteConversation = async (convId) => {
+    if (confirm('Delete this conversation permanently?')) {
+      await api.deleteConversation(convId);
+      if (convId === activeConversationId) {
+        btnChatNew.click();
+      } else {
+        refreshConversationsList();
+      }
+    }
+  };
 
   async function loadConversationIntoChat(convId) {
     activeConversationId = convId;
@@ -1754,9 +2313,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   const studioActiveFileLabel = document.getElementById('studio-active-file-label');
   const studioCredentialWarning = document.getElementById('studio-credential-warning');
   const studioEditorBox = document.getElementById('studio-editor-box');
+  const studioDiffContainer = document.getElementById('studio-diff-container');
+  const studioEditorStats = document.getElementById('studio-editor-stats');
+  const studioFileTabs = document.getElementById('studio-file-tabs');
+  const btnModeEditor = document.getElementById('btn-mode-editor');
+  const btnModeDiff = document.getElementById('btn-mode-diff');
+  const btnStudioSaveFile = document.getElementById('btn-studio-save-file');
   const btnStudioApplyDiff = document.getElementById('btn-studio-apply-diff');
   const btnStudioRevertDiff = document.getElementById('btn-studio-revert-diff');
   const btnStudioRejectDiff = document.getElementById('btn-studio-reject-diff');
+  const studioBottomPanel = document.getElementById('studio-bottom-panel');
+  const btnToggleBottomDrawer = document.getElementById('btn-toggle-bottom-drawer');
+  const tabDrawerTerminal = document.getElementById('tab-drawer-terminal');
+  const tabDrawerChecks = document.getElementById('tab-drawer-checks');
+  const tabDrawerHistory = document.getElementById('tab-drawer-history');
+  const paneTerminal = document.getElementById('pane-terminal');
+  const paneChecks = document.getElementById('pane-checks');
+  const paneHistory = document.getElementById('pane-history');
+  const studioChecksContent = document.getElementById('studio-checks-content');
+  const studioHistoryContent = document.getElementById('studio-history-content');
   const studioTerminalOutput = document.getElementById('studio-terminal-output');
   const studioCmdInput = document.getElementById('studio-cmd-input');
   const btnStudioRunCmd = document.getElementById('btn-studio-run-cmd');
@@ -1769,28 +2344,696 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnQuickTest = document.getElementById('btn-quick-test');
   const btnQuickLint = document.getElementById('btn-quick-lint');
   const btnQuickGit = document.getElementById('btn-quick-git');
+  const btnClearTerminal = document.getElementById('btn-clear-terminal');
 
+  // AI Dock Elements
+  const studioAiDock = document.getElementById('studio-ai-dock');
+  const studioAiModelPill = document.getElementById('studio-ai-model-pill');
+  const btnAiExplain = document.getElementById('btn-ai-explain');
+  const btnAiRefactor = document.getElementById('btn-ai-refactor');
+  const btnAiTests = document.getElementById('btn-ai-tests');
+  const btnAiBugs = document.getElementById('btn-ai-bugs');
+  const studioAiMessages = document.getElementById('studio-ai-messages');
+  const studioAiInput = document.getElementById('studio-ai-input');
+  const btnStudioAiSend = document.getElementById('btn-studio-ai-send');
+
+  // Activity Rail Elements
+  const railBtnFiles = document.getElementById('rail-btn-files');
+  const railBtnSearch = document.getElementById('rail-btn-search');
+  const railBtnGit = document.getElementById('rail-btn-git');
+  const railBtnAi = document.getElementById('rail-btn-ai');
+  const railBtnTerm = document.getElementById('rail-btn-term');
+  const studioPrimarySidebar = document.getElementById('studio-primary-sidebar');
+  const btnCollapseSidebar = document.getElementById('btn-collapse-sidebar');
+  const btnCloseAiDock = document.getElementById('btn-close-ai-dock');
+  const studioLineNumbers = document.getElementById('studio-line-numbers');
+
+  // Studio State
   let activeProjectMeta = null;
   let activeOpenFilePath = null;
   let lastAppliedBackupPath = null;
+  let openStudioTabs = []; // Array of { path, name, content, originalContent, isDirty }
+  let activeStudioTabIndex = -1;
+  let studioCurrentMode = 'editor'; // 'editor' | 'diff'
+  let studioSessionHistory = []; // Array of { timestamp, filePath, backupPath }
+
+  function getFileIcon(filename) {
+    const ext = (filename || '').split('.').pop().toLowerCase();
+    switch (ext) {
+      case 'js':
+      case 'mjs':
+      case 'cjs':
+      case 'ts':
+        return '🟨';
+      case 'json':
+        return '📦';
+      case 'html':
+        return '🌐';
+      case 'css':
+        return '🎨';
+      case 'md':
+      case 'txt':
+        return '📝';
+      case 'py':
+        return '🐍';
+      default:
+        return '📄';
+    }
+  }
+
+  function renderStudioTabs() {
+    if (!studioFileTabs) return;
+    if (openStudioTabs.length === 0) {
+      studioFileTabs.innerHTML = `
+        <div class="tab-item active" id="tab-default">
+          <span class="tab-icon">📄</span>
+          <span class="tab-name" id="studio-active-file-label">No File Open</span>
+        </div>
+      `;
+      if (studioActiveFileLabel) studioActiveFileLabel.textContent = 'No File Open';
+      if (studioEditorBox) {
+        studioEditorBox.value = '';
+        studioEditorBox.placeholder = '// Select a file from the project tree to view its contents';
+      }
+      if (studioEditorStats) studioEditorStats.textContent = 'UTF-8 · 0 lines';
+      if (studioCredentialWarning) studioCredentialWarning.style.display = 'none';
+      if (btnStudioSaveFile) btnStudioSaveFile.disabled = true;
+      activeOpenFilePath = null;
+      return;
+    }
+
+    if (btnStudioSaveFile) btnStudioSaveFile.disabled = false;
+    studioFileTabs.innerHTML = '';
+
+    openStudioTabs.forEach((tab, idx) => {
+      const tabEl = document.createElement('div');
+      tabEl.className = `tab-item ${idx === activeStudioTabIndex ? 'active' : ''}`;
+      tabEl.innerHTML = `
+        <span class="tab-icon">${getFileIcon(tab.name)}</span>
+        <span class="tab-name" title="${escapeHtml(tab.path)}">${escapeHtml(tab.name)}</span>
+        <span class="tab-unsaved" style="display: ${tab.isDirty ? 'inline-block' : 'none'};">●</span>
+        <button class="tab-close" title="Close">×</button>
+      `;
+
+      tabEl.addEventListener('click', (e) => {
+        if (e.target.classList.contains('tab-close')) {
+          e.stopPropagation();
+          closeStudioTab(idx);
+        } else {
+          selectStudioTab(idx);
+        }
+      });
+
+      studioFileTabs.appendChild(tabEl);
+    });
+  }
+
+  async function selectStudioTab(index) {
+    if (index < 0 || index >= openStudioTabs.length) return;
+    activeStudioTabIndex = index;
+    const tab = openStudioTabs[index];
+    activeOpenFilePath = tab.path;
+
+    if (studioActiveFileLabel) studioActiveFileLabel.textContent = tab.path;
+    if (studioEditorBox) studioEditorBox.value = tab.content;
+    updateEditorStats();
+
+    // Check credentials warning
+    try {
+      const isSensitive = await api.checkCredentialFile(tab.path);
+      if (studioCredentialWarning) {
+        studioCredentialWarning.style.display = isSensitive ? 'block' : 'none';
+      }
+    } catch (e) {
+      if (studioCredentialWarning) studioCredentialWarning.style.display = 'none';
+    }
+
+    renderStudioTabs();
+
+    if (studioCurrentMode === 'diff') {
+      renderDiffView(tab.originalContent, tab.content);
+    }
+  }
+
+  function closeStudioTab(index) {
+    const tab = openStudioTabs[index];
+    if (tab && tab.isDirty) {
+      const ok = confirm(`Discard unsaved changes to "${tab.name}"?`);
+      if (!ok) return;
+    }
+
+    openStudioTabs.splice(index, 1);
+    if (activeStudioTabIndex >= openStudioTabs.length) {
+      activeStudioTabIndex = openStudioTabs.length - 1;
+    }
+    if (activeStudioTabIndex >= 0) {
+      selectStudioTab(activeStudioTabIndex);
+    } else {
+      renderStudioTabs();
+    }
+  }
+
+  function updateEditorStats() {
+    if (!studioEditorBox || !studioEditorStats) return;
+    const lines = (studioEditorBox.value || '').split('\n').length;
+    const bytes = new Blob([studioEditorBox.value || '']).size;
+    const kb = (bytes / 1024).toFixed(1);
+    studioEditorStats.textContent = `UTF-8 · ${lines} lines (${kb} KB)`;
+
+    const lineGutter = document.getElementById('studio-line-numbers');
+    if (lineGutter) {
+      const maxLines = Math.max(lines, 1);
+      let gutterText = '';
+      for (let i = 1; i <= maxLines; i++) {
+        gutterText += i + '\n';
+      }
+      lineGutter.textContent = gutterText;
+    }
+  }
+
+  // Handle live editing in editor
+  if (studioEditorBox) {
+    studioEditorBox.addEventListener('input', () => {
+      if (activeStudioTabIndex >= 0 && activeStudioTabIndex < openStudioTabs.length) {
+        const tab = openStudioTabs[activeStudioTabIndex];
+        tab.content = studioEditorBox.value;
+        const wasDirty = tab.isDirty;
+        tab.isDirty = tab.content !== tab.originalContent;
+        if (wasDirty !== tab.isDirty) {
+          renderStudioTabs();
+        }
+      }
+      updateEditorStats();
+    });
+
+    studioEditorBox.addEventListener('scroll', () => {
+      const lineGutter = document.getElementById('studio-line-numbers');
+      if (lineGutter) {
+        lineGutter.scrollTop = studioEditorBox.scrollTop;
+      }
+    });
+
+    studioEditorBox.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveActiveStudioFile();
+      }
+    });
+  }
+
+  async function saveActiveStudioFile() {
+    if (activeStudioTabIndex < 0 || activeStudioTabIndex >= openStudioTabs.length) return;
+    const tab = openStudioTabs[activeStudioTabIndex];
+    try {
+      const res = await api.writeFileWithBackup(tab.path, tab.content, true);
+      tab.originalContent = tab.content;
+      tab.isDirty = false;
+      renderStudioTabs();
+
+      if (res && res.backupPath) {
+        lastAppliedBackupPath = res.backupPath;
+        studioSessionHistory.unshift({
+          timestamp: new Date().toLocaleTimeString(),
+          filePath: tab.path,
+          backupPath: res.backupPath
+        });
+        updateChangeHistoryPane();
+      }
+
+      showToast(`Saved "${tab.name}" safely with backup.`, 'success');
+    } catch (err) {
+      alert(`Save Error: ${err.message}`);
+    }
+  }
+
+  if (btnStudioSaveFile) {
+    btnStudioSaveFile.addEventListener('click', saveActiveStudioFile);
+  }
+
+  // Segmented Mode Switcher (Editor vs Diff Preview)
+  function setStudioMode(mode) {
+    studioCurrentMode = mode;
+    if (btnModeEditor) btnModeEditor.classList.toggle('active', mode === 'editor');
+    if (btnModeDiff) btnModeDiff.classList.toggle('active', mode === 'diff');
+
+    if (mode === 'editor') {
+      if (studioEditorBox) studioEditorBox.style.display = 'block';
+      const wrapper = document.getElementById('studio-editor-wrapper');
+      if (wrapper) wrapper.style.display = 'flex';
+      if (studioDiffContainer) studioDiffContainer.style.display = 'none';
+      if (btnStudioApplyDiff) btnStudioApplyDiff.style.display = 'none';
+      if (btnStudioRejectDiff) btnStudioRejectDiff.style.display = 'none';
+    } else {
+      if (studioEditorBox) studioEditorBox.style.display = 'none';
+      const wrapper = document.getElementById('studio-editor-wrapper');
+      if (wrapper) wrapper.style.display = 'none';
+      if (studioDiffContainer) studioDiffContainer.style.display = 'block';
+
+      if (activeStudioTabIndex >= 0 && activeStudioTabIndex < openStudioTabs.length) {
+        const tab = openStudioTabs[activeStudioTabIndex];
+        renderDiffView(tab.originalContent, tab.content);
+        if (tab.isDirty) {
+          if (btnStudioApplyDiff) btnStudioApplyDiff.style.display = 'inline-flex';
+          if (btnStudioRejectDiff) btnStudioRejectDiff.style.display = 'inline-flex';
+        }
+      }
+    }
+  }
+
+  if (btnModeEditor) btnModeEditor.addEventListener('click', () => setStudioMode('editor'));
+  if (btnModeDiff) btnModeDiff.addEventListener('click', () => setStudioMode('diff'));
+
+  function renderDiffView(originalText, modifiedText) {
+    if (!studioDiffContainer) return;
+    const origLines = (originalText || '').split('\n');
+    const modLines = (modifiedText || '').split('\n');
+
+    let addCount = 0;
+    let delCount = 0;
+    const maxLines = Math.max(origLines.length, modLines.length);
+    for (let i = 0; i < maxLines; i++) {
+      if (origLines[i] !== modLines[i]) {
+        if (origLines[i] !== undefined) delCount++;
+        if (modLines[i] !== undefined) addCount++;
+      }
+    }
+
+    const currentTab = (activeStudioTabIndex >= 0 && activeStudioTabIndex < openStudioTabs.length)
+      ? openStudioTabs[activeStudioTabIndex]
+      : null;
+    const fileName = currentTab ? currentTab.name : 'Active File';
+
+    let diffHtml = `
+      <div class="diff-header-banner">
+        <div class="diff-header-info">
+          <span class="diff-header-title">⚖️ Diff: <strong>${escapeHtml(fileName)}</strong></span>
+          ${originalText === modifiedText
+            ? '<span class="status-badge" style="background: rgba(100, 116, 139, 0.2); color: var(--text-muted); font-size: 11px;">Unmodified</span>'
+            : `<span class="status-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-success); font-size: 11px;">+${addCount} lines</span>
+               <span class="status-badge" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); font-size: 11px;">-${delCount} lines</span>`}
+        </div>
+        ${originalText !== modifiedText ? `
+          <div class="diff-header-actions">
+            <button class="btn btn-sm btn-danger" id="diff-banner-reject">✕ Reject Changes</button>
+            <button class="btn btn-sm btn-primary" id="diff-banner-apply">✓ Approve &amp; Apply (Rule 14)</button>
+          </div>
+        ` : ''}
+      </div>
+      <div style="font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5; padding: 4px 0;">
+    `;
+
+    if (originalText === modifiedText) {
+      diffHtml += '<div style="color: var(--text-muted); padding: 16px; text-align: center;">No diff detected. File is unmodified.</div>';
+    } else {
+      for (let i = 0; i < maxLines; i++) {
+        const orig = origLines[i];
+        const mod = modLines[i];
+
+        if (orig === mod) {
+          diffHtml += `<div class="diff-line diff-ctx"><span class="diff-num">${i + 1}</span><span class="diff-sign"> </span><span>${escapeHtml(orig || '')}</span></div>`;
+        } else {
+          if (orig !== undefined) {
+            diffHtml += `<div class="diff-line diff-del"><span class="diff-num">${i + 1}</span><span class="diff-sign">-</span><span>${escapeHtml(orig)}</span></div>`;
+          }
+          if (mod !== undefined) {
+            diffHtml += `<div class="diff-line diff-add"><span class="diff-num">${i + 1}</span><span class="diff-sign">+</span><span>${escapeHtml(mod)}</span></div>`;
+          }
+        }
+      }
+    }
+    diffHtml += '</div>';
+    studioDiffContainer.innerHTML = diffHtml;
+
+    const bReject = document.getElementById('diff-banner-reject');
+    if (bReject && btnStudioRejectDiff) {
+      bReject.addEventListener('click', () => btnStudioRejectDiff.click());
+    }
+    const bApply = document.getElementById('diff-banner-apply');
+    if (bApply && btnStudioApplyDiff) {
+      bApply.addEventListener('click', () => btnStudioApplyDiff.click());
+    }
+  }
+
+  // Diff Apply & Reject Handlers
+  if (btnStudioApplyDiff) {
+    btnStudioApplyDiff.addEventListener('click', async () => {
+      if (activeStudioTabIndex < 0 || activeStudioTabIndex >= openStudioTabs.length) return;
+      const tab = openStudioTabs[activeStudioTabIndex];
+      const ok = confirm(`Security Confirmation (Rule 14):\n\nApprove changes to "${tab.name}"?\nA safe recoverable backup will be created before applying.`);
+      if (!ok) return;
+
+      try {
+        const res = await api.applyDiff(tab.path, tab.content, true, { allowSensitive: true });
+        lastAppliedBackupPath = res.backupPath;
+        tab.originalContent = tab.content;
+        tab.isDirty = false;
+        renderStudioTabs();
+        setStudioMode('editor');
+        if (btnStudioRevertDiff) btnStudioRevertDiff.style.display = 'inline-flex';
+
+        studioSessionHistory.unshift({
+          timestamp: new Date().toLocaleTimeString(),
+          filePath: tab.path,
+          backupPath: res.backupPath
+        });
+        updateChangeHistoryPane();
+        showToast('Diff applied safely with backup.', 'success');
+      } catch (err) {
+        alert('Apply Diff Error: ' + err.message);
+      }
+    });
+  }
+
+  if (btnStudioRejectDiff) {
+    btnStudioRejectDiff.addEventListener('click', () => {
+      if (activeStudioTabIndex < 0 || activeStudioTabIndex >= openStudioTabs.length) return;
+      const tab = openStudioTabs[activeStudioTabIndex];
+      tab.content = tab.originalContent;
+      tab.isDirty = false;
+      if (studioEditorBox) studioEditorBox.value = tab.content;
+      renderStudioTabs();
+      setStudioMode('editor');
+      showToast('Changes discarded.', 'info');
+    });
+  }
+
+  if (btnStudioRevertDiff) {
+    btnStudioRevertDiff.addEventListener('click', async () => {
+      if (!activeOpenFilePath || !lastAppliedBackupPath) return;
+      const ok = confirm(`Revert Changes (Rule 14):\n\nRestore original file content from backup?\n${lastAppliedBackupPath}`);
+      if (!ok) return;
+
+      try {
+        await api.revertDiff(activeOpenFilePath, lastAppliedBackupPath);
+        const restored = await api.readFile(activeOpenFilePath);
+        if (activeStudioTabIndex >= 0 && activeStudioTabIndex < openStudioTabs.length) {
+          const tab = openStudioTabs[activeStudioTabIndex];
+          tab.content = restored;
+          tab.originalContent = restored;
+          tab.isDirty = false;
+        }
+        if (studioEditorBox) studioEditorBox.value = restored;
+        renderStudioTabs();
+        btnStudioRevertDiff.style.display = 'none';
+        showToast('File restored successfully from backup.', 'success');
+      } catch (err) {
+        alert('Revert Error: ' + err.message);
+      }
+    });
+  }
+
+  // Bottom Drawer Pane Switcher
+  function switchDrawerPane(paneName) {
+    if (tabDrawerTerminal) tabDrawerTerminal.classList.toggle('active', paneName === 'terminal');
+    if (tabDrawerChecks) tabDrawerChecks.classList.toggle('active', paneName === 'checks');
+    if (tabDrawerHistory) tabDrawerHistory.classList.toggle('active', paneName === 'history');
+
+    if (paneTerminal) paneTerminal.style.display = paneName === 'terminal' ? 'block' : 'none';
+    if (paneChecks) paneChecks.style.display = paneName === 'checks' ? 'block' : 'none';
+    if (paneHistory) paneHistory.style.display = paneName === 'history' ? 'block' : 'none';
+
+    if (studioBottomPanel && studioBottomPanel.classList.contains('collapsed')) {
+      studioBottomPanel.classList.remove('collapsed');
+      if (btnToggleBottomDrawer) btnToggleBottomDrawer.textContent = '▼';
+    }
+  }
+
+  if (tabDrawerTerminal) tabDrawerTerminal.addEventListener('click', () => switchDrawerPane('terminal'));
+  if (tabDrawerChecks) tabDrawerChecks.addEventListener('click', () => {
+    switchDrawerPane('checks');
+    refreshChecksPane();
+  });
+  if (tabDrawerHistory) tabDrawerHistory.addEventListener('click', () => {
+    switchDrawerPane('history');
+    updateChangeHistoryPane();
+  });
+
+  if (btnToggleBottomDrawer) {
+    btnToggleBottomDrawer.addEventListener('click', () => {
+      if (!studioBottomPanel) return;
+      const isCollapsed = studioBottomPanel.classList.toggle('collapsed');
+      btnToggleBottomDrawer.textContent = isCollapsed ? '▲' : '▼';
+    });
+  }
+
+  async function refreshChecksPane() {
+    if (!studioChecksContent) return;
+    if (!currentWorkspaceDir) {
+      studioChecksContent.textContent = 'No project open. Open a project to inspect files.';
+      return;
+    }
+    studioChecksContent.innerHTML = '<div style="color: var(--text-muted);">Running project diagnostics...</div>';
+    try {
+      const summary = await api.analyzeProject(currentWorkspaceDir);
+      studioChecksContent.innerHTML = `
+        <div style="line-height: 1.6;">
+          <strong>Project:</strong> ${escapeHtml(summary.name)} (${summary.totalFiles} files)<br>
+          <strong>Primary Languages:</strong> ${(summary.languages || []).map(l => `${l.language} (${l.fileCount})`).join(', ') || 'N/A'}<br>
+          <strong>Security:</strong> All modifications protected with automated backups (.astro_bak).<br>
+          <strong>Offline Boundary:</strong> Protected under Rule 2 &amp; 4.
+        </div>
+      `;
+    } catch (e) {
+      studioChecksContent.textContent = 'Diagnostics error: ' + e.message;
+    }
+  }
+
+  function updateChangeHistoryPane() {
+    if (!studioHistoryContent) return;
+    if (studioSessionHistory.length === 0) {
+      studioHistoryContent.textContent = 'No file edits or backups created in this session.';
+      return;
+    }
+    studioHistoryContent.innerHTML = studioSessionHistory.map(h => `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border-subtle);">
+        <div>
+          <strong>${escapeHtml(h.filePath.split(/[\\/]/).pop())}</strong>
+          <span style="font-size: 10px; color: var(--text-muted); margin-left: 6px;">${h.timestamp}</span>
+          <div style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">${escapeHtml(h.backupPath)}</div>
+        </div>
+        <button class="btn btn-sm" style="font-size: 10px; padding: 2px 6px;" onclick="window.triggerRevertSpecific('${escapeHtml(h.filePath.replace(/\\/g, '\\\\'))}', '${escapeHtml(h.backupPath.replace(/\\/g, '\\\\'))}')">↩ Restore</button>
+      </div>
+    `).join('');
+  }
+
+  window.triggerRevertSpecific = async (filePath, backupPath) => {
+    if (confirm(`Restore "${filePath}" from "${backupPath}"?`)) {
+      await api.revertDiff(filePath, backupPath);
+      showToast('File restored.', 'success');
+      if (activeOpenFilePath === filePath) {
+        loadFileIntoStudio(filePath);
+      }
+    }
+  };
+
+  if (btnClearTerminal) {
+    btnClearTerminal.addEventListener('click', () => {
+      if (studioTerminalOutput) studioTerminalOutput.textContent = 'ASTRO Terminal ready.';
+    });
+  }
+
+  // Activity Rail Bindings
+  function setRailActive(activeBtnId) {
+    [railBtnFiles, railBtnSearch, railBtnGit, railBtnAi, railBtnTerm].forEach(b => {
+      if (b) b.classList.toggle('active', b.id === activeBtnId);
+    });
+  }
+
+  if (railBtnFiles) {
+    railBtnFiles.addEventListener('click', () => {
+      if (studioPrimarySidebar) {
+        const isCollapsed = studioPrimarySidebar.classList.contains('collapsed');
+        if (isCollapsed) {
+          studioPrimarySidebar.classList.remove('collapsed');
+          setRailActive('rail-btn-files');
+        } else if (railBtnFiles.classList.contains('active')) {
+          studioPrimarySidebar.classList.add('collapsed');
+          railBtnFiles.classList.remove('active');
+        } else {
+          setRailActive('rail-btn-files');
+        }
+      }
+    });
+  }
+
+  if (btnCollapseSidebar) {
+    btnCollapseSidebar.addEventListener('click', () => {
+      if (studioPrimarySidebar) studioPrimarySidebar.classList.add('collapsed');
+      if (railBtnFiles) railBtnFiles.classList.remove('active');
+    });
+  }
+
+  if (railBtnSearch) {
+    railBtnSearch.addEventListener('click', () => {
+      if (studioPrimarySidebar) studioPrimarySidebar.classList.remove('collapsed');
+      setRailActive('rail-btn-search');
+      if (studioTreeSearch) {
+        studioTreeSearch.placeholder = 'Search code in project...';
+        studioTreeSearch.focus();
+      }
+    });
+  }
+
+  if (railBtnGit) {
+    railBtnGit.addEventListener('click', () => {
+      setRailActive('rail-btn-git');
+      setStudioMode('diff');
+    });
+  }
+
+  if (railBtnAi) {
+    railBtnAi.addEventListener('click', () => {
+      if (studioAiDock) {
+        const isCollapsed = studioAiDock.classList.toggle('collapsed');
+        railBtnAi.classList.toggle('active', !isCollapsed);
+        if (!isCollapsed && studioAiInput) {
+          studioAiInput.focus();
+        }
+      }
+    });
+  }
+
+  if (btnCloseAiDock) {
+    btnCloseAiDock.addEventListener('click', () => {
+      if (studioAiDock) studioAiDock.classList.add('collapsed');
+      if (railBtnAi) railBtnAi.classList.remove('active');
+    });
+  }
+
+  if (railBtnTerm) {
+    railBtnTerm.addEventListener('click', () => {
+      if (studioBottomPanel) {
+        const isCollapsed = studioBottomPanel.classList.toggle('collapsed');
+        railBtnTerm.classList.toggle('active', !isCollapsed);
+        if (!isCollapsed) {
+          switchDrawerPane('terminal');
+          if (btnToggleBottomDrawer) btnToggleBottomDrawer.textContent = '▼';
+          if (studioCmdInput) studioCmdInput.focus();
+        } else {
+          if (btnToggleBottomDrawer) btnToggleBottomDrawer.textContent = '▲';
+        }
+      }
+    });
+  }
+
+  // AI Assistant Dock Actions
+  async function askStudioAi(promptText) {
+    if (!promptText) return;
+    if (studioAiMessages) {
+      const userMsg = document.createElement('div');
+      userMsg.className = 'ai-msg user';
+      userMsg.textContent = promptText;
+      studioAiMessages.appendChild(userMsg);
+      studioAiMessages.scrollTop = studioAiMessages.scrollHeight;
+    }
+
+    if (studioAiInput) studioAiInput.value = '';
+
+    const asstMsg = document.createElement('div');
+    asstMsg.className = 'ai-msg assistant';
+    asstMsg.innerHTML = '<span style="color: var(--text-muted);">Thinking...</span>';
+    if (studioAiMessages) {
+      studioAiMessages.appendChild(asstMsg);
+      studioAiMessages.scrollTop = studioAiMessages.scrollHeight;
+    }
+
+    const currentCode = (activeStudioTabIndex >= 0 && activeStudioTabIndex < openStudioTabs.length)
+      ? openStudioTabs[activeStudioTabIndex].content
+      : '';
+    const currentName = (activeStudioTabIndex >= 0 && activeStudioTabIndex < openStudioTabs.length)
+      ? openStudioTabs[activeStudioTabIndex].name
+      : 'untitled';
+
+    const fullPrompt = currentCode
+      ? `File: ${currentName}\n\`\`\`\n${currentCode.slice(0, 3000)}\n\`\`\`\n\nTask: ${promptText}`
+      : promptText;
+
+    try {
+      const res = await api.sendMessage({
+        message: fullPrompt,
+        mode: 'general-assistant',
+        useRAG: false
+      });
+      asstMsg.innerHTML = formatMessageContent(res.text);
+
+      // If response includes code blocks, offer review diff
+      if (res.text && res.text.includes('```') && activeStudioTabIndex >= 0) {
+        const codeMatch = res.text.match(/```(?:\w+)?\n([\s\S]*?)```/);
+        if (codeMatch && codeMatch[1]) {
+          const proposedCode = codeMatch[1].trim();
+          const reviewBtn = document.createElement('button');
+          reviewBtn.className = 'btn btn-sm btn-primary';
+          reviewBtn.style.cssText = 'margin-top: 8px; font-size: 11px;';
+          reviewBtn.textContent = '⚖️ Review Proposed Diff';
+          reviewBtn.onclick = () => {
+            const tab = openStudioTabs[activeStudioTabIndex];
+            tab.content = proposedCode;
+            tab.isDirty = true;
+            if (studioEditorBox) studioEditorBox.value = proposedCode;
+            renderStudioTabs();
+            setStudioMode('diff');
+          };
+          asstMsg.appendChild(reviewBtn);
+        }
+      }
+    } catch (err) {
+      asstMsg.innerHTML = `<span style="color: var(--accent-danger);">AI Error: ${escapeHtml(err.message)}</span>`;
+    } finally {
+      if (studioAiMessages) studioAiMessages.scrollTop = studioAiMessages.scrollHeight;
+    }
+  }
+
+  if (btnAiExplain) {
+    btnAiExplain.addEventListener('click', () => askStudioAi('Explain how this code works and its key patterns.'));
+  }
+  if (btnAiRefactor) {
+    btnAiRefactor.addEventListener('click', () => askStudioAi('Refactor this code for readability, performance, and best practices.'));
+  }
+  if (btnAiTests) {
+    btnAiTests.addEventListener('click', () => askStudioAi('Generate unit tests for this code.'));
+  }
+  if (btnAiBugs) {
+    btnAiBugs.addEventListener('click', () => askStudioAi('Audit this code for edge cases, performance bottlenecks, or potential bugs.'));
+  }
+
+  if (btnStudioAiSend) {
+    btnStudioAiSend.addEventListener('click', () => {
+      const q = studioAiInput ? studioAiInput.value.trim() : '';
+      if (q) askStudioAi(q);
+    });
+  }
+
+  if (studioAiInput) {
+    studioAiInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const q = studioAiInput.value.trim();
+        if (q) askStudioAi(q);
+      }
+    });
+  }
 
   async function openProjectFolder(folderPath) {
     if (!folderPath) return;
     try {
       activeProjectMeta = await api.openProject(folderPath);
       currentWorkspaceDir = folderPath;
-      studioProjectName.textContent = `📁 ${activeProjectMeta.name}`;
-      studioProjectName.style.borderColor = 'var(--accent-primary)';
-      btnStudioCloseProject.style.display = 'inline-flex';
+      if (studioProjectName) {
+        studioProjectName.textContent = `📁 ${activeProjectMeta.name}`;
+        studioProjectName.style.borderColor = 'var(--accent-primary)';
+      }
+      if (btnStudioCloseProject) btnStudioCloseProject.style.display = 'inline-flex';
 
       // Badges
-      studioProjectBadges.innerHTML = '';
-      if (activeProjectMeta.languages && activeProjectMeta.languages.length > 0) {
-        const topLangs = activeProjectMeta.languages.slice(0, 3).map(l => `<span class="status-badge" style="font-size: 10px;">${escapeHtml(l.language)} (${l.fileCount})</span>`).join(' ');
-        studioProjectBadges.innerHTML += topLangs;
-      }
-      if (activeProjectMeta.manifest && activeProjectMeta.manifest.manifestFile) {
-        studioProjectBadges.innerHTML += ` <span class="status-badge" style="font-size: 10px; background: rgba(59, 130, 246, 0.15); color: var(--accent-primary);">📦 ${escapeHtml(activeProjectMeta.manifest.manifestFile)}</span>`;
+      if (studioProjectBadges) {
+        studioProjectBadges.innerHTML = '';
+        if (activeProjectMeta.languages && activeProjectMeta.languages.length > 0) {
+          const topLangs = activeProjectMeta.languages.slice(0, 3).map(l => `<span class="status-badge" style="font-size: 10px;">${escapeHtml(l.language)} (${l.fileCount})</span>`).join(' ');
+          studioProjectBadges.innerHTML += topLangs;
+        }
+        if (activeProjectMeta.manifest && activeProjectMeta.manifest.manifestFile) {
+          studioProjectBadges.innerHTML += ` <span class="status-badge" style="font-size: 10px; background: rgba(59, 130, 246, 0.15); color: var(--accent-primary);">📦 ${escapeHtml(activeProjectMeta.manifest.manifestFile)}</span>`;
+        }
       }
 
       await refreshStudioView();
@@ -1813,75 +3056,118 @@ document.addEventListener('DOMContentLoaded', async () => {
       await api.closeProject();
       activeProjectMeta = null;
       currentWorkspaceDir = '';
-      studioProjectName.textContent = 'No Active Project';
-      studioProjectName.style.borderColor = 'var(--border-subtle)';
-      studioProjectBadges.innerHTML = '';
+      if (studioProjectName) {
+        studioProjectName.textContent = 'No Active Project';
+        studioProjectName.style.borderColor = 'var(--border-subtle)';
+      }
+      if (studioProjectBadges) studioProjectBadges.innerHTML = '';
       btnStudioCloseProject.style.display = 'none';
-      studioActiveFileLabel.textContent = 'No File Open';
-      studioEditorBox.textContent = '// Select a file from the project tree to view its contents';
-      studioTreeList.innerHTML = '<div style="color: var(--text-muted); font-size: 11.5px; padding: 10px 0;">Open a project folder to inspect files.</div>';
+      openStudioTabs = [];
+      activeStudioTabIndex = -1;
+      renderStudioTabs();
+      if (studioTreeList) studioTreeList.innerHTML = '<div style="color: var(--text-muted); font-size: 11.5px; padding: 10px 0;">Open a project folder to inspect files.</div>';
     });
   }
 
   async function refreshStudioView() {
+    renderStudioTabs();
+    updateEditorStats();
+
+    if (!currentWorkspaceDir && api.getActiveProject) {
+      try {
+        const active = await api.getActiveProject();
+        if (active && active.projectPath) {
+          currentWorkspaceDir = active.projectPath;
+          activeProjectMeta = active;
+          if (studioProjectName) {
+            studioProjectName.textContent = `📁 ${active.name || active.projectPath.split(/[\\/]/).pop()}`;
+            studioProjectName.style.borderColor = 'var(--accent-primary)';
+          }
+          if (btnStudioCloseProject) btnStudioCloseProject.style.display = 'inline-flex';
+          if (studioProjectBadges && active.languages) {
+            studioProjectBadges.innerHTML = active.languages.slice(0, 3).map(l => `<span class="status-badge" style="font-size: 10px;">${escapeHtml(l.language)} (${l.fileCount})</span>`).join(' ');
+          }
+        }
+      } catch (e) {}
+    }
+
     const targetDir = currentWorkspaceDir;
     if (!targetDir) {
-      studioTreeList.innerHTML = '<div style="color: var(--text-muted); font-size: 11.5px; padding: 10px 0;">Open a project folder to inspect files.</div>';
+      if (studioTreeList) {
+        studioTreeList.innerHTML = `
+          <div class="tree-empty-notice">
+            <div style="font-size: 26px; margin-bottom: 8px;">📁</div>
+            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">No Project Open</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;">Open a workspace folder to inspect files, edit code, and run tests safely.</div>
+            <button class="btn btn-sm btn-primary" id="btn-tree-open-folder" style="font-size: 11px;">Open Folder 📁</button>
+          </div>
+        `;
+        const b = document.getElementById('btn-tree-open-folder');
+        if (b && btnStudioOpenProject) b.addEventListener('click', () => btnStudioOpenProject.click());
+      }
       return;
     }
     const query = studioTreeSearch ? studioTreeSearch.value.trim() : '';
 
     if (query) {
-      // Search project code or filenames
       const matches = await api.searchProjectCode(query);
-      studioTreeList.innerHTML = '';
-      if (matches.length === 0) {
-        studioTreeList.innerHTML = '<div style="color: var(--text-muted); font-size: 11px;">No matching code lines found.</div>';
-        return;
+      if (studioTreeList) {
+        studioTreeList.innerHTML = '';
+        if (matches.length === 0) {
+          studioTreeList.innerHTML = '<div style="color: var(--text-muted); font-size: 11px; padding: 8px;">No matching code lines found.</div>';
+          return;
+        }
+        matches.slice(0, 40).forEach(m => {
+          const item = document.createElement('div');
+          item.className = 'file-item-row';
+          item.innerHTML = `<strong>${escapeHtml(m.fileName)}</strong>:${m.line} <span style="font-size: 10px; color: var(--text-muted);">${escapeHtml(m.matchedLine.slice(0, 40))}</span>`;
+          item.onclick = () => loadFileIntoStudio(m.filePath);
+          studioTreeList.appendChild(item);
+        });
       }
-      matches.slice(0, 40).forEach(m => {
-        const item = document.createElement('div');
-        item.className = 'file-item-row';
-        item.innerHTML = `<strong>${escapeHtml(m.fileName)}</strong>:${m.line} <span style="font-size: 10px; color: var(--text-muted);">${escapeHtml(m.matchedLine.slice(0, 40))}</span>`;
-        item.onclick = () => loadFileIntoStudio(m.filePath);
-        studioTreeList.appendChild(item);
-      });
       return;
     }
 
     const files = await api.listFiles(targetDir, 'all');
-    studioTreeList.innerHTML = '';
-    files.slice(0, 50).forEach(f => {
-      const item = document.createElement('div');
-      item.className = 'file-item-row';
-      const isCode = f.category === 'code';
-      item.innerHTML = `<span>${f.type === 'directory' ? '📁' : (isCode ? '📄' : '📝')} ${escapeHtml(f.name)}</span>`;
-      if (f.type === 'file') {
-        item.onclick = () => loadFileIntoStudio(f.path);
-      }
-      studioTreeList.appendChild(item);
-    });
+    if (studioTreeList) {
+      studioTreeList.innerHTML = '';
+      files.slice(0, 50).forEach(f => {
+        const item = document.createElement('div');
+        item.className = 'file-item-row';
+        const isCode = f.category === 'code';
+        item.innerHTML = `<span>${f.type === 'directory' ? '📁' : (isCode ? '📄' : '📝')} ${escapeHtml(f.name)}</span>`;
+        if (f.type === 'file') {
+          item.onclick = () => loadFileIntoStudio(f.path);
+        }
+        studioTreeList.appendChild(item);
+      });
+    }
   }
 
   async function loadFileIntoStudio(filePath) {
-    activeOpenFilePath = filePath;
-    studioActiveFileLabel.textContent = filePath;
-
-    // Check credential file
-    const isSensitive = await api.checkCredentialFile(filePath);
-    if (studioCredentialWarning) {
-      studioCredentialWarning.style.display = isSensitive ? 'block' : 'none';
+    if (!filePath) return;
+    const existingIndex = openStudioTabs.findIndex(t => t.path === filePath);
+    if (existingIndex >= 0) {
+      selectStudioTab(existingIndex);
+      return;
     }
 
-    const content = await api.readFile(filePath);
-    studioEditorBox.textContent = content;
-
-    // Propose reviewable diff verification
-    proposedDiff = await api.proposeDiff(filePath, content + '\n// ASTRO safe edit verification');
-    btnStudioApplyDiff.style.display = 'inline-flex';
-    btnStudioRejectDiff.style.display = 'inline-flex';
-    btnStudioRevertDiff.style.display = 'none';
+    try {
+      const content = await api.readFile(filePath);
+      const name = filePath.split(/[\\/]/).pop();
+      openStudioTabs.push({
+        path: filePath,
+        name,
+        content,
+        originalContent: content,
+        isDirty: false
+      });
+      selectStudioTab(openStudioTabs.length - 1);
+    } catch (err) {
+      alert(`Could not open file: ${err.message}`);
+    }
   }
+  window.loadFileIntoStudio = loadFileIntoStudio;
 
   if (studioTreeSearch) {
     studioTreeSearch.addEventListener('input', () => {
@@ -1895,52 +3181,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  btnStudioApplyDiff.addEventListener('click', async () => {
-    if (!proposedDiff) return;
-    const ok = confirm(`Security Confirmation (Rule 14):\n\nApprove modifying "${proposedDiff.filePath}"?\nA recoverable backup (.astro_bak) will be created before saving.`);
-    if (ok) {
-      const res = await api.applyDiff(proposedDiff.filePath, proposedDiff.newContent || '', true, {
-        allowSensitive: true,
-        expectedMtime: proposedDiff.inspectedMtime
-      });
-      lastAppliedBackupPath = res.backupPath;
-      alert(`File modified safely.\nBackup created at: ${res.backupPath}`);
-      studioEditorBox.textContent = proposedDiff.newContent;
-      btnStudioApplyDiff.style.display = 'none';
-      btnStudioRejectDiff.style.display = 'none';
-      btnStudioRevertDiff.style.display = 'inline-flex';
-      proposedDiff = null;
-    }
-  });
-
-  if (btnStudioRevertDiff) {
-    btnStudioRevertDiff.addEventListener('click', async () => {
-      if (!activeOpenFilePath) return;
-      const ok = confirm(`Revert Changes (Rule 14):\n\nRestore original file content from backup?`);
-      if (ok) {
-        await api.revertDiff(activeOpenFilePath, lastAppliedBackupPath);
-        alert('File restored successfully from backup.');
-        const restored = await api.readFile(activeOpenFilePath);
-        studioEditorBox.textContent = restored;
-        btnStudioRevertDiff.style.display = 'none';
-      }
-    });
-  }
-
-  btnStudioRejectDiff.addEventListener('click', () => {
-    proposedDiff = null;
-    btnStudioApplyDiff.style.display = 'none';
-    btnStudioRejectDiff.style.display = 'none';
-  });
-
   async function runStudioCommand(cmd) {
     if (!cmd) return;
-    const ok = confirm(`Security Confirmation (Rule 9):\n\nApprove execution of command:\n${cmd}\n\nWorking Directory: ${currentWorkspaceDir}`);
+    const ok = confirm(`Security Confirmation (Rule 9):\n\nApprove execution of command:\n${cmd}\n\nWorking Directory: ${currentWorkspaceDir || 'Default App Directory'}`);
     if (!ok) return;
 
-    studioTerminalOutput.textContent += `\n$ ${cmd}\nRunning...`;
-    studioCmdInput.value = '';
-    btnStudioRunCmd.disabled = true;
+    if (studioTerminalOutput) studioTerminalOutput.textContent += `\n$ ${cmd}\nRunning...`;
+    if (studioCmdInput) studioCmdInput.value = '';
+    if (btnStudioRunCmd) btnStudioRunCmd.disabled = true;
     if (btnStudioCancelCmd) btnStudioCancelCmd.style.display = 'inline-flex';
     if (studioCmdStatusBadge) {
       studioCmdStatusBadge.style.display = 'inline-block';
@@ -1952,7 +3200,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const res = await api.execCommand(cmd, currentWorkspaceDir, true);
       const outcome = res.status === 'passed' ? 'PASSED (Exit 0)' : `FAILED (Exit ${res.exitCode})`;
-      studioTerminalOutput.textContent += `\n${res.stdout || ''}${res.stderr ? '\n[stderr]: ' + res.stderr : ''}\n---\nCompleted in ${res.durationMs}ms · Status: ${outcome}\n`;
+      if (studioTerminalOutput) {
+        studioTerminalOutput.textContent += `\n${res.stdout || ''}${res.stderr ? '\n[stderr]: ' + res.stderr : ''}\n---\nCompleted in ${res.durationMs}ms · Status: ${outcome}\n`;
+      }
 
       if (studioCmdStatusBadge) {
         studioCmdStatusBadge.textContent = res.status === 'passed' ? 'Passed' : 'Failed';
@@ -1960,27 +3210,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         studioCmdStatusBadge.style.color = res.status === 'passed' ? 'var(--accent-success)' : 'var(--accent-danger)';
       }
     } catch (err) {
-      studioTerminalOutput.textContent += `\n[Execution Error]: ${err.message}\n`;
+      if (studioTerminalOutput) studioTerminalOutput.textContent += `\n[Execution Error]: ${err.message}\n`;
       if (studioCmdStatusBadge) {
         studioCmdStatusBadge.textContent = 'Error';
         studioCmdStatusBadge.style.background = 'rgba(239, 68, 68, 0.15)';
         studioCmdStatusBadge.style.color = 'var(--accent-danger)';
       }
     } finally {
-      btnStudioRunCmd.disabled = false;
+      if (btnStudioRunCmd) btnStudioRunCmd.disabled = false;
       if (btnStudioCancelCmd) btnStudioCancelCmd.style.display = 'none';
-      studioTerminalOutput.scrollTop = studioTerminalOutput.scrollHeight;
+      if (studioTerminalOutput) studioTerminalOutput.scrollTop = studioTerminalOutput.scrollHeight;
     }
   }
 
-  btnStudioRunCmd.addEventListener('click', () => {
-    runStudioCommand(studioCmdInput.value.trim());
-  });
+  if (btnStudioRunCmd) {
+    btnStudioRunCmd.addEventListener('click', () => {
+      if (studioCmdInput) runStudioCommand(studioCmdInput.value.trim());
+    });
+  }
+
+  if (studioCmdInput) {
+    studioCmdInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        runStudioCommand(studioCmdInput.value.trim());
+      }
+    });
+  }
 
   if (btnStudioCancelCmd) {
     btnStudioCancelCmd.addEventListener('click', async () => {
       await api.cancelCommand();
-      studioTerminalOutput.textContent += '\n[Command cancelled by user.]\n';
+      if (studioTerminalOutput) studioTerminalOutput.textContent += '\n[Command cancelled by user.]\n';
     });
   }
 
@@ -2018,16 +3278,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   api.onDownloadProgress((p) => {
-    const fill = document.getElementById(`model-dl-fill-${p.filename}`);
-    const stats = document.getElementById(`model-dl-stats-${p.filename}`);
+    const fill = document.getElementById(`model-dl-fill-${p.filename}`) || document.getElementById(`model-dl-fill-${p.modelId}`);
+    const stats = document.getElementById(`model-dl-stats-${p.filename}`) || document.getElementById(`model-dl-stats-${p.modelId}`);
+    const dlBox = document.getElementById(`dl-box-${p.modelId}`);
+    if (dlBox) dlBox.style.display = 'block';
+
     if (fill && stats) {
-      fill.style.width = `${p.progressPercent}%`;
-      const mbDl = (p.bytesDownloaded / 1024 / 1024).toFixed(1);
-      const mbTot = (p.totalBytes / 1024 / 1024).toFixed(1);
-      const spd = (p.speedBytesPerSec / 1024 / 1024).toFixed(2);
-      stats.textContent = `${p.progressPercent}% (${mbDl} / ${mbTot} MB) · ${spd} MB/s · ETA ${p.etaSeconds}s`;
+      if (!p.totalBytes || p.totalBytes <= 0) {
+        fill.classList.add('indeterminate-bar');
+        fill.style.width = '100%';
+        const mbDl = (p.bytesDownloaded / 1024 / 1024).toFixed(1);
+        const spd = (p.speedBytesPerSec / 1024 / 1024).toFixed(2);
+        stats.textContent = `Determining file size... (${mbDl} MB downloaded) · ${spd} MB/s`;
+      } else {
+        fill.classList.remove('indeterminate-bar');
+        fill.style.width = `${p.progressPercent}%`;
+        const mbDl = (p.bytesDownloaded / 1024 / 1024).toFixed(1);
+        const mbTot = (p.totalBytes / 1024 / 1024).toFixed(1);
+        const spd = (p.speedBytesPerSec / 1024 / 1024).toFixed(2);
+        stats.textContent = `${p.progressPercent}% (${mbDl} / ${mbTot} MB) · ${spd} MB/s · ETA ${p.etaSeconds}s`;
+      }
     }
     refreshDownloadQueueView();
+    refreshNetworkStatus();
   });
 
   if (btnModelsImportLocal) {
@@ -2172,6 +3445,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const catalog = await api.getCatalog();
     const registry = await api.getModelRegistry();
     const registryMap = new Map((registry || []).map(r => [r.modelId, r]));
+    const queue = await api.getDownloadQueue();
+    const activeDlMap = new Map();
+    queue.forEach(q => {
+      if (q.status === 'downloading' || q.status === 'connecting' || q.status === 'verifying') {
+        activeDlMap.set(q.filename, q);
+        if (q.modelId) activeDlMap.set(q.modelId, q);
+      }
+    });
 
     modelsCardsGrid.innerHTML = '';
 
@@ -2180,6 +3461,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const isInstalled = Boolean(regEntry || m.installed);
       const isLoaded = activeModel && activeModel.modelId === m.id;
       const lifecycle = await api.getModelState(m.id);
+      const activeDl = activeDlMap.get(m.id) || (m.quantizations || []).map(q => activeDlMap.get(q.filename)).find(Boolean);
 
       const card = document.createElement('div');
       card.className = 'card';
@@ -2190,8 +3472,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(m.repoId)} · ${m.license}</div>
           </div>
           <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-            <span class="status-badge" style="font-size: 10px;">${isInstalled ? (isLoaded ? 'Loaded (Ready)' : 'Installed') : 'Available'}</span>
-            <span style="font-size: 10px; color: var(--text-muted);">State: ${lifecycle.state}</span>
+            <span class="status-badge" style="font-size: 10px;">${isInstalled ? (isLoaded ? 'Loaded (Ready)' : 'Installed') : (activeDl ? 'Downloading' : 'Available')}</span>
+            <span style="font-size: 10px; color: var(--text-muted);">State: ${activeDl ? activeDl.status : lifecycle.state}</span>
           </div>
         </div>
         <p class="card-desc" style="margin-top: 6px;">${escapeHtml(m.description)}</p>
@@ -2209,41 +3491,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         ` : ''}
 
         <table class="data-table" style="margin-top: 10px;">
-          <thead><tr><th>Quant</th><th>Size</th><th>Action</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Quantization</th>
+              <th>Disk Required</th>
+              <th>Est. RAM Footprint</th>
+              <th>Action</th>
+            </tr>
+          </thead>
           <tbody>
-            ${(m.quantizations || []).map(q => `
-              <tr>
-                <td><strong>${q.tag}</strong> ${q.recommended ? '<span style="color: var(--accent-primary); font-size: 10px;">(Recommended)</span>' : ''}</td>
-                <td>~${q.approxSizeGB} GB</td>
-                <td>
-                  ${isInstalled ? `
-                    ${isLoaded ? `
-                      <button class="btn btn-sm btn-danger" onclick="triggerUnloadModel()">Unload</button>
+            ${(m.quantizations || []).map(q => {
+              const isItemDownloading = activeDlMap.has(q.filename);
+              const estRamGB = (q.approxSizeGB + 0.9).toFixed(1);
+              return `
+                <tr>
+                  <td><strong>${q.tag}</strong> ${q.recommended ? '<span style="color: var(--accent-primary); font-size: 10px;">(Recommended)</span>' : ''}</td>
+                  <td>~${q.approxSizeGB} GB <span style="font-size: 10px; color: var(--text-muted);">(+5GB margin)</span></td>
+                  <td>~${estRamGB} GB <span style="font-size: 10px; color: var(--text-muted);">(Weights + KV)</span></td>
+                  <td>
+                    ${isInstalled ? `
+                      ${isLoaded ? `
+                        <button class="btn btn-sm btn-danger" onclick="triggerUnloadModel()">Unload</button>
+                      ` : `
+                        <div style="display: flex; gap: 4px;">
+                          <button class="btn btn-sm btn-primary" onclick="window.confirmModelSwitch('${m.id}', '${regEntry ? regEntry.filePath.replace(/\\/g, '\\\\') : (m.localPath || '').replace(/\\/g, '\\\\')}')">Switch & Load</button>
+                          <button class="btn btn-sm btn-danger" onclick="triggerDeleteModel('${m.id}')" title="Delete Model File">Delete File</button>
+                        </div>
+                      `}
                     ` : `
-                      <div style="display: flex; gap: 4px;">
-                        <button class="btn btn-sm btn-primary" onclick="window.confirmModelSwitch('${m.id}', '${regEntry ? regEntry.filePath.replace(/\\/g, '\\\\') : (m.localPath || '').replace(/\\/g, '\\\\')}')">Switch & Load</button>
-                        <button class="btn btn-sm btn-danger" onclick="triggerDeleteModel('${m.id}')" title="Delete Model File">Delete File</button>
-                      </div>
+                      <button class="btn btn-sm btn-primary" id="btn-dl-${q.filename}" ${isItemDownloading ? 'disabled' : ''} onclick="triggerDownloadModel('${m.id}', '${q.tag}', '${q.filename}', ${Math.round(q.approxSizeGB * 1024 ** 3)}, '${m.repoId}')">
+                        ${isItemDownloading ? `⏳ In Progress (${activeDl ? (activeDl.progressPercent || 0) : 0}%)` : 'Download'}
+                      </button>
                     `}
-                  ` : `
-                    <button class="btn btn-sm btn-primary" id="btn-dl-${q.filename}" onclick="triggerDownloadModel('${m.id}', '${q.tag}', '${q.filename}', ${Math.round(q.approxSizeGB * 1024 ** 3)}, '${m.repoId}')">Download</button>
-                  `}
-                </td>
-              </tr>
-            `).join('')}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
 
-
-        <div id="dl-box-${m.id}" style="display: none; margin-top: 10px; padding: 10px; background: var(--bg-card); border-radius: var(--radius-sm);">
+        <div id="dl-box-${m.id}" style="display: ${activeDl ? 'block' : 'none'}; margin-top: 10px; padding: 10px; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
           <div style="display: flex; justify-content: space-between; font-size: 11.5px;">
-            <span id="dl-title-${m.id}">Downloading...</span>
-            <button class="btn btn-sm btn-danger" onclick="triggerCancelDl('${m.id}')">Cancel</button>
+            <span id="dl-title-${m.id}">
+              ${activeDl ? (activeDl.status === 'connecting' ? 'Connecting to repository...' : (activeDl.status === 'verifying' ? 'Verifying file integrity...' : (activeDl.status === 'completed' ? 'Download complete!' : `Downloading ${activeDl.filename} (${activeDl.progressPercent || 0}%)`))) : 'Downloading...'}
+            </span>
+            <button class="btn btn-sm btn-danger" onclick="triggerCancelDl('${activeDl ? activeDl.filename : m.id}')">Cancel</button>
           </div>
           <div style="height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden; margin: 6px 0;">
-            <div id="model-dl-fill-${m.id}" style="height: 100%; width: 0%; background: var(--accent-primary);"></div>
+            <div id="model-dl-fill-${m.id}" class="${(activeDl && (!activeDl.totalBytes || activeDl.totalBytes <= 0)) ? 'indeterminate-bar' : ''}" style="height: 100%; width: ${activeDl ? (activeDl.progressPercent || 0) : 0}%; background: var(--accent-primary);"></div>
           </div>
-          <div id="model-dl-stats-${m.id}" style="font-size: 11px; color: var(--text-muted);">Starting...</div>
+          <div id="model-dl-stats-${m.id}" style="font-size: 11px; color: var(--text-muted);">
+            ${activeDl ? `${activeDl.progressPercent || 0}% · ${(activeDl.bytesDownloaded ? (activeDl.bytesDownloaded / 1024 / 1024).toFixed(1) : '0')} MB / ${(activeDl.totalBytes ? (activeDl.totalBytes / 1024 / 1024).toFixed(1) : '?')} MB` : 'Starting...'}
+          </div>
         </div>
       `;
       modelsCardsGrid.appendChild(card);
@@ -2251,9 +3550,51 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   window.triggerDownloadModel = async (modelId, quantTag, filename, approxBytes, repoId) => {
+    // Preflight hardware check (Memory & Disk Suitability - Phase 28)
+    if (api.checkModelPreflight) {
+      try {
+        const preflight = await api.checkModelPreflight({
+          modelId,
+          expectedSizeBytes: approxBytes,
+          fileSizeGB: approxBytes / (1024 ** 3)
+        });
+        if (preflight && preflight.severity === 'critical_insufficient') {
+          const ok = confirm(
+            `[HARDWARE SAFEGUARD WARNING]\n\n` +
+            `${preflight.message}\n` +
+            `Estimated RAM: ~${preflight.estimatedTotalRamGB || preflight.estimatedRamGB} GB (Free: ${preflight.freeRamGB} GB)\n` +
+            `Required Disk: ${preflight.requiredDiskGB} GB (Free: ${preflight.freeDiskGB} GB)\n\n` +
+            `Recommended Action: ${preflight.recommendedAction}\n\n` +
+            `Do you want to proceed with downloading anyway?`
+          );
+          if (!ok) return;
+        } else if (preflight && preflight.severity === 'warning_disk') {
+          alert(`[INSUFFICIENT DISK SPACE]\n\n${preflight.message}\nRequired: ${preflight.requiredDiskGB} GB | Available: ${preflight.freeDiskGB} GB.\n\nPlease free up disk space before downloading.`);
+          return;
+        }
+      } catch (err) {
+        console.warn('Download preflight check warning:', err);
+      }
+    }
+
     const url = `https://huggingface.co/${repoId || 'Qwen/Qwen2.5-Coder-7B-Instruct-GGUF'}/resolve/main/${filename}`;
     const dlBox = document.getElementById(`dl-box-${modelId}`);
+    const dlTitle = document.getElementById(`dl-title-${modelId}`);
+    const dlFill = document.getElementById(`model-dl-fill-${modelId}`);
+    const dlStats = document.getElementById(`model-dl-stats-${modelId}`);
+    const dlBtn = document.getElementById(`btn-dl-${filename}`);
+
     if (dlBox) dlBox.style.display = 'block';
+    if (dlTitle) dlTitle.textContent = `Connecting to ${filename}...`;
+    if (dlFill) {
+      dlFill.classList.add('indeterminate-bar');
+      dlFill.style.width = '100%';
+    }
+    if (dlStats) dlStats.textContent = 'Contacting model repository...';
+    if (dlBtn) {
+      dlBtn.disabled = true;
+      dlBtn.textContent = '⏳ In Progress';
+    }
 
     try {
       const res = await api.downloadModel({
@@ -2264,22 +3605,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         variantTag: quantTag
       });
 
+      if (res && res.alreadyActive) {
+        showToast(`Download is already running for ${filename}. Showing live progress.`, 'info');
+        return;
+      }
+
+      if (dlTitle) dlTitle.textContent = 'Verifying file integrity...';
+      if (dlStats) dlStats.textContent = 'Checking magic GGUF header and file size...';
+
+      const verifiedBytes = (res && res.totalBytes && res.totalBytes > 0) ? res.totalBytes : approxBytes;
+
+      if (dlTitle) dlTitle.textContent = `Registering ${modelId} (${quantTag})...`;
+      if (dlStats) dlStats.textContent = 'Finalizing model catalog and persistent registry...';
+
       await api.installModel({
         modelId,
         variantTag: quantTag,
         filename,
         partialFilePath: res.partialPath,
-        expectedSizeBytes: approxBytes,
+        expectedSizeBytes: verifiedBytes,
         repoId
       });
 
-      alert(`Model ${modelId} (${quantTag}) successfully downloaded, verified, and installed!`);
+      showToast(`Model ${modelId} (${quantTag}) successfully downloaded, verified, and installed!`, 'success');
       refreshModelsView();
+      refreshNetworkStatus();
     } catch (e) {
-      alert(`Download/Installation error: ${e.message}`);
+      if (e.message && e.message.includes('cancelled')) {
+        showToast(`Download cancelled: ${filename}`, 'warning');
+      } else {
+        alert(`Download/Installation error: ${e.message}`);
+      }
     } finally {
       if (dlBox) dlBox.style.display = 'none';
       refreshModelsView();
+      refreshNetworkStatus();
     }
   };
 
@@ -2314,12 +3674,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
 
+      // Visual loading state
+      const topbarModelText = document.getElementById('topbar-model-text');
+      const topbarModelDot = document.getElementById('topbar-model-dot');
+      const chatActivePill = document.getElementById('chat-active-model-pill');
+
+      if (topbarModelText) topbarModelText.textContent = `⏳ Loading ${modelId}...`;
+      if (topbarModelDot) topbarModelDot.className = 'dot';
+      if (chatActivePill) {
+        chatActivePill.textContent = `⏳ Loading ${modelId}...`;
+        chatActivePill.style.color = 'var(--accent-warning)';
+      }
+      showToast(`Allocating memory and initializing ${modelId} in RAM...`, 'info');
+
       activeModel = await api.loadModel(modelId, pathStr, options);
       await refreshActiveModel();
       refreshModelsView();
-      alert(`Model ${modelId} loaded into memory! Health check passed. You can now generate responses in 02 Chat.`);
+      showToast(`Model ${modelId} loaded into memory! Ready for local inference in AI Chat.`, 'success');
     } catch (e) {
-      alert(`Failed to load model: ${e.message}`);
+      showToast(`Failed to load model: ${e.message}`, 'danger');
+      await refreshActiveModel();
       refreshModelsView();
     }
   };
@@ -2580,6 +3954,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnSettingsSave = document.getElementById('btn-settings-save');
   const settingThemeSelect = document.getElementById('setting-theme-select');
   const settingSidebarCollapse = document.getElementById('setting-sidebar-collapse');
+  const settingWelcomeStartup = document.getElementById('setting-welcome-startup');
   const settingPrivacyOffline = document.getElementById('setting-privacy-offline');
   const settingPrivacyExternal = document.getElementById('setting-privacy-external');
   const btnPrivacyDeleteData = document.getElementById('btn-privacy-delete-data');
@@ -2607,6 +3982,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     settingThemeSelect.value = currentSettings.appearance.theme || 'dark';
     settingSidebarCollapse.checked = currentSettings.appearance.sidebarCollapsed || false;
+    if (settingWelcomeStartup) {
+      settingWelcomeStartup.checked = currentSettings.appearance.showWelcomeOnStartup !== false;
+    }
     settingPrivacyOffline.checked = currentSettings.privacy.offlineOnly;
     settingPrivacyExternal.checked = currentSettings.privacy.allowExternalServices;
     settingDefaultModel.value = currentSettings.inference.defaultModelId;
@@ -2637,7 +4015,8 @@ Active Model     : ${activeModel ? activeModel.modelId : 'None Loaded'}
       ...currentSettings,
       appearance: {
         theme: settingThemeSelect.value,
-        sidebarCollapsed: settingSidebarCollapse.checked
+        sidebarCollapsed: settingSidebarCollapse.checked,
+        showWelcomeOnStartup: settingWelcomeStartup ? settingWelcomeStartup.checked : true
       },
       privacy: {
         offlineOnly: settingPrivacyOffline.checked,
